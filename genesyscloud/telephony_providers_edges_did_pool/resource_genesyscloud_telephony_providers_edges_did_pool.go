@@ -138,11 +138,11 @@ func deleteDidPool(ctx context.Context, d *schema.ResourceData, meta interface{}
 
 	diagErr := gcloud.RetryWhen(gcloud.IsStatus409, func() (*platformclientv2.APIResponse, diag.Diagnostics) {
 		log.Printf("Deleting DID pool with starting number %s", startPhoneNumber)
-		err := proxy.deleteTelephonyDidPool(ctx, d.Id())
+		resp, err := proxy.deleteTelephonyDidPool(ctx, d.Id())
 		if err != nil {
-			return nil, diag.Errorf("Failed to delete schedule group %s: %s", d.Id(), err)
+			return resp, diag.Errorf("Failed to delete DID pool with starting number %s: %s", startPhoneNumber, err)
 		}
-		return nil, nil
+		return resp, nil
 	})
 	if diagErr != nil {
 		return diagErr
