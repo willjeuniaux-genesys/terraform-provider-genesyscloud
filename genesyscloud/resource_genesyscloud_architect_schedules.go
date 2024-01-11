@@ -16,7 +16,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/leekchan/timeutil"
-	"github.com/mypurecloud/platform-client-sdk-go/v116/platformclientv2"
+	"github.com/mypurecloud/platform-client-sdk-go/v119/platformclientv2"
 )
 
 func getAllArchitectSchedules(_ context.Context, clientConfig *platformclientv2.Configuration) (resourceExporter.ResourceIDMetaMap, diag.Diagnostics) {
@@ -263,7 +263,7 @@ func deleteArchitectSchedules(ctx context.Context, d *schema.ResourceData, meta 
 	sdkConfig := meta.(*ProviderMeta).ClientConfig
 	archAPI := platformclientv2.NewArchitectApiWithConfig(sdkConfig)
 
-	// Race condition: a schedule part of a schedule group will not be able to be deleted until that schedule group is deleted. Retryig here to make sure it is cleared properly.
+	// DEVTOOLING-311: a schedule linked to a schedule group will not be able to be deleted until that schedule group is deleted. Retryig here to make sure it is cleared properly.
 	log.Printf("Deleting schedule %s", d.Id())
 	diagErr := RetryWhen(IsStatus409, func() (*platformclientv2.APIResponse, diag.Diagnostics) {
 		log.Printf("Deleting schedule %s", d.Id())
