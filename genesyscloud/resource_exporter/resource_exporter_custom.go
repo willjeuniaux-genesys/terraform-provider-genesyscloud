@@ -84,9 +84,6 @@ func RuleSetSkillPropertyResolver(configMap map[string]interface{}, exporters ma
 			skillIdList := strings.Split(skillIDs, ",")
 			exportId := ""
 
-			log.Printf("skillIDs: %v", skillIDs)
-			log.Printf("skillIdList1: %v", skillIdList)
-
 			// Trim the double quotes from each element in the array
 			for i := 0; i < len(skillIdList); i++ {
 				skillIdList[i] = strings.Trim(skillIdList[i], "\"")
@@ -112,6 +109,7 @@ func RuleSetSkillPropertyResolver(configMap map[string]interface{}, exporters ma
 					sanitisedSkillIds = append(sanitisedSkillIds, fmt.Sprintf("${genesyscloud_routing_skill.%s.id}", exportId))
 				} else {
 					log.Printf("Key '%s' does not exist in the map.\n", skillId)
+					sanitisedSkillIds = append(sanitisedSkillIds, fmt.Sprintf("not_exist_skill_%s", skillId))
 				}
 
 			}
