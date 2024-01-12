@@ -17,7 +17,7 @@ import (
 	"github.com/mypurecloud/platform-client-sdk-go/v119/platformclientv2"
 )
 
-func getAllRoutingSkills(_ context.Context, clientConfig *platformclientv2.Configuration) (resourceExporter.ResourceIDMetaMap, diag.Diagnostics) {
+func GetAllRoutingSkills(_ context.Context, clientConfig *platformclientv2.Configuration) (resourceExporter.ResourceIDMetaMap, diag.Diagnostics) {
 	resources := make(resourceExporter.ResourceIDMetaMap)
 	routingAPI := platformclientv2.NewRoutingApiWithConfig(clientConfig)
 
@@ -44,7 +44,7 @@ func getAllRoutingSkills(_ context.Context, clientConfig *platformclientv2.Confi
 
 func RoutingSkillExporter() *resourceExporter.ResourceExporter {
 	return &resourceExporter.ResourceExporter{
-		GetResourcesFunc: GetAllWithPooledClient(getAllRoutingSkills),
+		GetResourcesFunc: GetAllWithPooledClient(GetAllRoutingSkills),
 		RefAttrs:         map[string]*resourceExporter.RefAttrSettings{}, // No references
 	}
 }

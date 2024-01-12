@@ -1,6 +1,8 @@
 package outbound_ruleset
 
 import (
+	"log"
+
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 
@@ -321,6 +323,7 @@ func OutboundRulesetExporter() *resourceExporter.ResourceExporter {
 			"rules.actions.properties":        {ResolverFunc: resourceExporter.RuleSetPropertyResolver},
 			"rules.actions.properties.skills": {ResolverFunc: resourceExporter.RuleSetSkillPropertyResolver},
 		},
+		FilterResource: filterOutboundRuleSet,
 	}
 }
 
@@ -340,4 +343,9 @@ func DataSourceOutboundRuleset() *schema.Resource {
 			},
 		},
 	}
+}
+
+func filterOutboundRuleSet(resources resourceExporter.ResourceIDMetaMap, name string, filter []string) resourceExporter.ResourceIDMetaMap {
+	log.Printf("filterOutboundRuleSet")
+	return resources
 }

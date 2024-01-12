@@ -3,6 +3,7 @@ package resource_exporter
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 )
 
@@ -70,29 +71,59 @@ and we have an array of attributes wrapped in a string.
 This customer custom router will look at the skills array if present and resolve each string id find the appropriate resource out of the exporters and build a reference appropriately.
 */
 func RuleSetSkillPropertyResolver(configMap map[string]interface{}, exporters map[string]*ResourceExporter) error {
-
+	log.Printf("RuleSetSkillPropertyResolver")
 	if exporter, ok := exporters["genesyscloud_routing_skill"]; ok {
 		skillIDs := configMap["skills"].(string)
 
 		if len(skillIDs) == 0 {
 			return nil
 		} else {
+
 			sanitisedSkillIds := []string{}
 			skillIDs = skillIDs[1 : len(skillIDs)-1]
 			skillIdList := strings.Split(skillIDs, ",")
 			exportId := ""
 
+			log.Printf("skillIDs: %v", skillIDs)
+			log.Printf("skillIdList1: %v", skillIdList)
+
 			// Trim the double quotes from each element in the array
 			for i := 0; i < len(skillIdList); i++ {
 				skillIdList[i] = strings.Trim(skillIdList[i], "\"")
 			}
+			log.Printf("skillIdList2: %v", skillIdList)
 
 			for _, skillId := range skillIdList {
-				exportId = (*exporter.SanitizedResourceMap[skillId]).Name
-				sanitisedSkillIds = append(sanitisedSkillIds, fmt.Sprintf("${genesyscloud_routing_skill.%s.id}", exportId))
-			}
 
-			jsonData, _ := json.Marshal(sanitisedSkillIds)
+				log.Printf("skillId: %v", skillId)
+
+				for id, name := range exporter.SanitizedResourceMap {
+					log.Printf("id: %s", id)
+					log.Printf("name: %s", name)
+				}
+
+				// Check if a key exists in the map
+				value, exists := exporter.SanitizedResourceMap[skillId]
+
+				// Check the existence
+				if exists {
+					log.Printf("Key '%s' exists in the map. Value: %v\n", skillId, value)
+					exportId = (*exporter.SanitizedResourceMap[skillId]).Name
+					sanitisedSkillIds = append(sanitisedSkillIds, fmt.Sprintf("${genesyscloud_routing_skill.%s.id}", exportId))
+				} else {
+					log.Printf("Key '%s' does not exist in the map.\n", skillId)
+				}
+
+			}
+			log.Printf("exportId: %s", exportId)
+			log.Printf("sanitisedSkillIds: %v", sanitisedSkillIds)
+
+			jsonData, err := json.Marshal(sanitisedSkillIds)
+			if err != nil {
+				log.Println("json.marshal.error:", err)
+				return fmt.Errorf("error")
+			}
+			log.Printf("jsonData: %s", jsonData)
 			configMap["skills"] = string(jsonData)
 		}
 	} else {

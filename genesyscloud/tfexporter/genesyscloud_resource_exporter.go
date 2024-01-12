@@ -1099,27 +1099,40 @@ func (g *GenesysCloudResourceExporter) sanitizeConfigMap(
 			}
 		}
 
+		// log.Printf("configMap: %+v", configMap)
+		// log.Printf("exporters: %+v", exporters)
+		// Displaying the contents of the map
+		// log.Printf("Exporters Contents:")
+		// for key, value := range exporters {
+		// 	log.Printf("key:%s - value:%v\n", key, value)
+		// }
+
 		//If the exporter as has customer resolver for an attribute, invoke it.
 		if refAttrCustomResolver, ok := exporter.CustomAttributeResolver[currAttr]; ok {
-			log.Printf("Custom resolver invoked for attribute: %s", currAttr)
+			log.Printf("[1]Custom resolver invoked for attribute: %s", currAttr)
 			err := refAttrCustomResolver.ResolverFunc(configMap, exporters)
 
 			if err != nil {
 				log.Printf("An error has occurred while trying invoke a custom resolver for attribute %s", currAttr)
+				log.Printf("Error1: %+v", err)
+				log.Printf("configMap2: %+v", configMap)
 			}
 		}
 
 		// Check if the exporter has custom flow resolver (Only applicable for flow resource)
 		if refAttrCustomFlowResolver, ok := exporter.CustomFlowResolver[currAttr]; ok {
-			log.Printf("Custom resolver invoked for attribute: %s", currAttr)
+			log.Printf("[2]Custom resolver invoked for attribute: %s", currAttr)
 			varReference := fmt.Sprintf("%s_%s_%s", resourceType, resourceName, "filepath")
 			err := refAttrCustomFlowResolver.ResolverFunc(configMap, varReference)
 
 			if err != nil {
 				log.Printf("An error has occurred while trying invoke a custom resolver for attribute %s", currAttr)
+				log.Printf("Error2: %+v", err)
+				log.Printf("configMap2: %+v", configMap)
 			}
 		}
 
+		// log.Printf("Hello World2")
 		if exportingAsHCL && exporter.IsJsonEncodable(currAttr) {
 			if vStr, ok := configMap[key].(string); ok {
 				decodedData, err := getDecodedData(vStr, currAttr)

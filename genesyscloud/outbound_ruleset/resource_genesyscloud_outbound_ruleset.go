@@ -34,12 +34,78 @@ func getAllAuthOutboundRuleset(ctx context.Context, clientConfig *platformclient
 		return nil, diag.Errorf("Failed to get ruleset: %v", err)
 	}
 
-	for _, ruleset := range *rulesets {
+	skillExporter := gcloud.RoutingSkillExporter()
+	resultMap, err2 := skillExporter.GetResourcesFunc(ctx)
+	if err2 != nil {
+		return nil, err2
+	}
+
+	// log.Printf("result: %v\n", resultMap)
+
+	// skills := gcloud.GetAllRoutingSkills(ctx,)
+	// Iterate through the map
+	var skills []string
+	log.Printf("Retrieved all skills from GC!")
+	for key, value := range resultMap {
+		log.Printf("Skill Key: %s, Skill Value: %s\n", key, value.Name)
+		skills = append(skills, value.Name)
+	}
+
+	log.Printf("skills: %v\n", skills)
+
+	filteredRuleSets := filterRuleSets(*rulesets, skills)
+
+	for _, ruleset := range filteredRuleSets {
 		log.Printf("Dealing with ruleset id : %s", *ruleset.Id)
+
 		resources[*ruleset.Id] = &resourceExporter.ResourceMeta{Name: *ruleset.Name}
 	}
 
 	return resources, nil
+}
+
+// contains function checks if a string is present in a slice of strings
+func contains(skills []string, skill string) bool {
+	for _, s := range skills {
+		if s == skill {
+			return true
+		}
+	}
+	return false
+}
+
+func filterRuleSets(ruleSets []platformclientv2.Ruleset, allSkills []string) []platformclientv2.Ruleset {
+	var filteredRuleSets []platformclientv2.Ruleset
+
+	for _, ruleSet := range ruleSets {
+		log.Printf("filterRuleSets.ruleSet:%+v", ruleSet)
+		for _, rule := range *ruleSet.Rules {
+			log.Printf("filterRuleSets.rule:%+v", rule)
+			for _, condition := range *rule.Conditions {
+				log.Printf("filterRuleSets.condition:%+v", condition)
+
+				if condition.AttributeName != nil {
+					log.Printf("filterRuleSets.condition.AttributeName: %s ", *condition.AttributeName)
+				}
+
+				if condition.Value != nil {
+					log.Printf("filterRuleSets.condition.Value: %s ", *condition.Value)
+
+					if !contains(allSkills, *condition.Value) {
+						log.Printf("Skipping ruleset %s, the skill %s used in condition does not exist in GC anymore", *ruleSet.Id, *condition.Value)
+						goto NextRuleSet
+					}
+				} else {
+					log.Printf("Condition has no value!")
+				}
+
+			}
+		}
+		filteredRuleSets = append(filteredRuleSets, ruleSet)
+	NextRuleSet:
+	}
+
+	return filteredRuleSets
 }
 
 // createOutboundRuleset is used by the outbound_ruleset resource to create Genesys cloud outbound_ruleset
