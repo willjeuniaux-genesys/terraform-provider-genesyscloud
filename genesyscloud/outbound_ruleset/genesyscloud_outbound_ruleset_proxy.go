@@ -121,7 +121,7 @@ func getAllOutboundRulesetFn(ctx context.Context, p *outboundRulesetProxy) (*[]p
 		}
 
 		for _, ruleset := range *rulesets.Entities {
-			log.Printf("Dealing with ruleset id : %s", *ruleset.Id)
+			// log.Printf("Dealing with ruleset id : %s", *ruleset.Id)
 			allRulesets = append(allRulesets, ruleset)
 		}
 	}

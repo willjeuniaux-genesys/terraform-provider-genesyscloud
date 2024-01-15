@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
@@ -34,59 +35,70 @@ func getAllAuthOutboundRuleset(ctx context.Context, clientConfig *platformclient
 		return nil, diag.Errorf("Failed to get ruleset: %v", err)
 	}
 
-	// Filter ruleset
+	// Filtering rule sets by removing the ones that are referencing skills that no longer exist
 	skillExporter := gcloud.RoutingSkillExporter()
-	skillsMap, err2 := skillExporter.GetResourcesFunc(ctx)
+	skillMap, err2 := skillExporter.GetResourcesFunc(ctx)
 	if err2 != nil {
 		return nil, err2
 	}
 
-	var skills []string
-	for _, value := range skillsMap {
-		skills = append(skills, value.Name)
-	}
-
-	log.Printf("skills: %v\n", skills)
-
-	filteredRuleSets := filterOutboundRuleset(*rulesets, skills)
-
+	filteredRuleSets := filterOutboundRuleset(*rulesets, skillMap)
 	for _, ruleset := range filteredRuleSets {
-		log.Printf("Dealing with ruleset id : %s", *ruleset.Id)
-
+		// log.Printf("Dealing with ruleset id : %s", *ruleset.Id)
 		resources[*ruleset.Id] = &resourceExporter.ResourceMeta{Name: *ruleset.Name}
 	}
 
 	return resources, nil
 }
 
-func filterOutboundRuleset(ruleSets []platformclientv2.Ruleset, allSkills []string) []platformclientv2.Ruleset {
+// filterOutboundRuleset filters rulesets by removing the ones that are referencing skills that no longer exist in GC
+func filterOutboundRuleset(ruleSets []platformclientv2.Ruleset, skillMap resourceExporter.ResourceIDMetaMap) []platformclientv2.Ruleset {
 	var filteredRuleSets []platformclientv2.Ruleset
+	log.Printf("Filtering outbound rule sets")
 
+	// RuleSetLoop:
 	for _, ruleSet := range ruleSets {
-		// log.Printf("filterRuleSets.ruleSet:%+v", ruleSet)
 		for _, rule := range *ruleSet.Rules {
-			// log.Printf("filterRuleSets.rule:%+v", rule)
-			for _, condition := range *rule.Conditions {
-				// log.Printf("filterRuleSets.condition:%+v", condition)
-
-				if condition.AttributeName != nil && *condition.AttributeName == "Skill" {
-					if condition.Value != nil {
-						// log.Printf("filterRuleSets.condition.Value: %s ", *condition.Value)
-
-						if !gcloud.Contains(allSkills, *condition.Value) {
-							log.Printf("Skipping ruleset %s, the skill %s used in condition does not exist in GC anymore", *ruleSet.Id, *condition.Value)
-							// goto NextRuleSet
+			// look through the actions to identify if the skill id is being used
+			for _, action := range *rule.Actions {
+				// only care about the "set_skills" action
+				if action.ActionTypeName != nil && strings.ToLower(*action.ActionTypeName) == "set_skills" && action.Properties != nil {
+					for id, value := range *action.Properties {
+						if strings.ToLower(id) == "skills" {
+							// multiple skills can be set within that action, the skills value is a comma delimited string.
+							skillIds := strings.Split(value, ",")
+							for _, value := range skillIds {
+								_, found := skillMap[value]
+								if !found { // skill id referenced by the rule action isn't found in the skill map.
+									log.Printf("Removing ruleset %s, the skill %s used in action does not exist in GC anymore", *ruleSet.Id, value)
+									// continue RuleSetLoop
+								}
+							}
 						}
 					}
 				}
 			}
-			// in-depth print of actions
-			for _, action := range *rule.Actions {
-				log.Printf("filterRuleSets.action:%+v", action)
+			// look through the conditions to see if the skill name is being used
+			for _, condition := range *rule.Conditions {
+				if condition.AttributeName != nil && strings.ToLower(*condition.AttributeName) == "skill" {
+					if condition.Value != nil {
+						var found bool
+						for _, value := range skillMap {
+							if value.Name == *condition.Value {
+								found = true
+								break
+							}
+						}
+						if !found { // skill name referenced by rule condition isn't found in the skill map.
+							log.Printf("Removing ruleset %s, the skill %s used in condition does not exist in GC anymore", *ruleSet.Id, *condition.Value)
+							// continue RuleSetLoop
+						}
+					}
+				}
 			}
+
 		}
 		filteredRuleSets = append(filteredRuleSets, ruleSet)
-		// NextRuleSet:
 	}
 
 	return filteredRuleSets
