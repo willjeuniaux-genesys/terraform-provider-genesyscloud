@@ -89,24 +89,21 @@ func RuleSetSkillPropertyResolver(configMap map[string]interface{}, exporters ma
 			}
 
 			for _, skillId := range skillIdList {
-				// Check the existence of the skill in the skillmap
+				// DEVTOOLING-319: Outbound rulesets can reference skills that no longer exist. Plugin crash if we process a skill that doesn't exist in the skill map, making sure of its existence before proceeding.
 				value, exists := exporter.SanitizedResourceMap[skillId]
 				if exists {
-					log.Printf("Key '%s' exists in the map. Value: %v\n", skillId, value)
-					exportId = (*exporter.SanitizedResourceMap[skillId]).Name
+					exportId = value.Name
 					sanitisedSkillIds = append(sanitisedSkillIds, fmt.Sprintf("${genesyscloud_routing_skill.%s.id}", exportId))
 				} else {
-					log.Printf("Key '%s' does not exist in the map.\n", skillId)
+					log.Printf("Skill '%s' does not exist in the skill map.\n", skillId)
 					sanitisedSkillIds = append(sanitisedSkillIds, fmt.Sprintf("skill_%s_not_found", skillId))
 				}
 			}
 
 			jsonData, err := json.Marshal(sanitisedSkillIds)
 			if err != nil {
-				log.Println("json.marshal.error:", err)
-				return fmt.Errorf("error")
+				return fmt.Errorf("error converting sanitized skill ids array to JSON: %s", err)
 			}
-			log.Printf("jsonData: %s", jsonData)
 			configMap["skills"] = string(jsonData)
 		}
 	} else {
