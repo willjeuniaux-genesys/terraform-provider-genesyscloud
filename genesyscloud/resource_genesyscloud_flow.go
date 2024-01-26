@@ -47,7 +47,10 @@ func getAllFlows(ctx context.Context, clientConfig *platformclientv2.Configurati
 func FlowExporter() *resourceExporter.ResourceExporter {
 	return &resourceExporter.ResourceExporter{
 		GetResourcesFunc: GetAllWithPooledClient(getAllFlows),
-		RefAttrs:         map[string]*resourceExporter.RefAttrSettings{},
+		RefAttrs: map[string]*resourceExporter.RefAttrSettings{
+			"name": {},
+			"type": {},
+		},
 		UnResolvableAttributes: map[string]*schema.Schema{
 			"filepath": ResourceFlow().Schema["filepath"],
 		},
@@ -92,6 +95,16 @@ func ResourceFlow() *schema.Resource {
 				Type:     schema.TypeBool,
 				Optional: true,
 			},
+			"name": {
+				Description: `Genesys Cloud flow name`,
+				Type:        schema.TypeString,
+				Optional:    true,
+			},
+			"type": {
+				Description: `Genesys Cloud flow type`,
+				Type:        schema.TypeString,
+				Optional:    true,
+			},
 		},
 	}
 }
@@ -108,6 +121,8 @@ func readFlow(ctx context.Context, d *schema.ResourceData, meta interface{}) dia
 			}
 			return retry.NonRetryableError(fmt.Errorf("Failed to read flow %s: %s", d.Id(), err))
 		}
+		d.Set("name", *flow.Name)
+		d.Set("type", *flow.VarType)
 
 		log.Printf("Read flow %s %s", d.Id(), *flow.Name)
 		return nil
@@ -262,6 +277,7 @@ func deleteFlow(ctx context.Context, d *schema.ResourceData, meta interface{}) d
 }
 
 func GenerateFlowResource(resourceID, srcFile, filecontent string, force_unlock bool, substitutions ...string) string {
+	log.Printf("GenerateFlowResource:%s", resourceID)
 	fullyQualifiedPath, _ := filepath.Abs(srcFile)
 
 	if filecontent != "" {
