@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"log"
 	"terraform-provider-genesyscloud/genesyscloud/provider"
+	"terraform-provider-genesyscloud/genesyscloud/tfexporter_state"
 	"terraform-provider-genesyscloud/genesyscloud/util"
 	"terraform-provider-genesyscloud/genesyscloud/util/constants"
+	featureToggles "terraform-provider-genesyscloud/genesyscloud/util/feature_toggles"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
@@ -19,14 +21,15 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/mypurecloud/platform-client-sdk-go/v129/platformclientv2"
+	"github.com/mypurecloud/platform-client-sdk-go/v143/platformclientv2"
 )
 
-func getSites(ctx context.Context, sdkConfig *platformclientv2.Configuration) (resourceExporter.ResourceIDMetaMap, diag.Diagnostics) {
+func getAllSites(ctx context.Context, sdkConfig *platformclientv2.Configuration) (resourceExporter.ResourceIDMetaMap, diag.Diagnostics) {
 	resources := make(resourceExporter.ResourceIDMetaMap)
-	sp := getSiteProxy(sdkConfig)
+	sp := GetSiteProxy(sdkConfig)
 
-	unmanagedSites, resp, err := sp.getAllUnmanagedSites(ctx)
+	// get unmanaged sites
+	unmanagedSites, resp, err := sp.GetAllSites(ctx, false)
 	if err != nil {
 		return nil, util.BuildAPIDiagnosticError(resourceName, fmt.Sprintf("Failed to get unmanaged sites error: %s", err), resp)
 	}
@@ -34,20 +37,25 @@ func getSites(ctx context.Context, sdkConfig *platformclientv2.Configuration) (r
 		resources[*unmanagedSite.Id] = &resourceExporter.ResourceMeta{Name: *unmanagedSite.Name}
 	}
 
-	managedSites, resp, err := sp.getAllManagedSites(ctx)
+	// get managed sites
+	managedSites, resp, err := sp.GetAllSites(ctx, true)
 	if err != nil {
 		return nil, util.BuildAPIDiagnosticError(resourceName, fmt.Sprintf("Failed to get managed sites error: %s", err), resp)
 	}
 	for _, managedSite := range *managedSites {
 		resources[*managedSite.Id] = &resourceExporter.ResourceMeta{Name: *managedSite.Name}
+		// When exporting managed sites, they must automatically be exported as data source
+		// Managed sites are added to the ExportAsData []string in resource_exporter
+		if tfexporter_state.IsExporterActive() {
+			resourceExporter.AddDataSourceItems(resourceName, *managedSite.Name)
+		}
 	}
-
 	return resources, nil
 }
 
 func createSite(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	sdkConfig := meta.(*provider.ProviderMeta).ClientConfig
-	sp := getSiteProxy(sdkConfig)
+	sp := GetSiteProxy(sdkConfig)
 
 	siteReq := &platformclientv2.Site{
 		Name:                        platformclientv2.String(d.Get("name").(string)),
@@ -108,15 +116,19 @@ func createSite(ctx context.Context, d *schema.ResourceData, meta interface{}) d
 		return diagErr
 	}
 
-	diagErr = util.WithRetries(ctx, 60*time.Second, func() *retry.RetryError {
-		diagErr = updateSiteOutboundRoutes(ctx, sp, d)
+	if !featureToggles.OutboundRoutesToggleExists() {
+		diagErr = util.WithRetries(ctx, 60*time.Second, func() *retry.RetryError {
+			diagErr = updateSiteOutboundRoutes(ctx, sp, d)
+			if diagErr != nil {
+				return retry.RetryableError(util.BuildWithRetriesApiDiagnosticError(resourceName, fmt.Sprintf("failed to create site %s | error: %v", d.Id(), diagErr), nil))
+			}
+			return nil
+		})
 		if diagErr != nil {
-			return retry.RetryableError(fmt.Errorf(fmt.Sprintf("%v", diagErr), d.Id()))
+			return diagErr
 		}
-		return nil
-	})
-	if diagErr != nil {
-		return diagErr
+	} else {
+		log.Printf("%s is set, not managing outbound_routes attribute in site %s resource", featureToggles.OutboundRoutesToggleName(), d.Id())
 	}
 
 	log.Printf("Created site %s", *site.Id)
@@ -135,8 +147,9 @@ func createSite(ctx context.Context, d *schema.ResourceData, meta interface{}) d
 
 func readSite(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	sdkConfig := meta.(*provider.ProviderMeta).ClientConfig
-	sp := getSiteProxy(sdkConfig)
+	sp := GetSiteProxy(sdkConfig)
 	cc := consistency_checker.NewConsistencyCheck(ctx, d, meta, ResourceSite(), constants.DefaultConsistencyChecks, resourceName)
+	utilE164 := util.NewUtilE164Service()
 
 	log.Printf("Reading site %s", d.Id())
 	return util.WithRetriesForRead(ctx, d, func() *retry.RetryError {
@@ -148,42 +161,49 @@ func readSite(ctx context.Context, d *schema.ResourceData, meta interface{}) dia
 			return retry.NonRetryableError(util.BuildWithRetriesApiDiagnosticError(resourceName, fmt.Sprintf("failed to read site %s | error: %s", d.Id(), err), resp))
 		}
 
-		d.Set("name", *currentSite.Name)
-		d.Set("location_id", nil)
+		_ = d.Set("name", *currentSite.Name)
+		_ = d.Set("location_id", nil)
 		if currentSite.Location != nil {
-			d.Set("location_id", *currentSite.Location.Id)
+			_ = d.Set("location_id", *currentSite.Location.Id)
 		}
-		d.Set("media_model", *currentSite.MediaModel)
-		d.Set("media_regions_use_latency_based", *currentSite.MediaRegionsUseLatencyBased)
+		_ = d.Set("media_model", *currentSite.MediaModel)
+		_ = d.Set("media_regions_use_latency_based", *currentSite.MediaRegionsUseLatencyBased)
 
 		resourcedata.SetNillableValue(d, "description", currentSite.Description)
 		resourcedata.SetNillableValueWithInterfaceArrayWithFunc(d, "edge_auto_update_config", currentSite.EdgeAutoUpdateConfig, flattenSdkEdgeAutoUpdateConfig)
 		resourcedata.SetNillableValue(d, "media_regions", currentSite.MediaRegions)
 
-		d.Set("caller_id", currentSite.CallerId)
-		d.Set("caller_name", currentSite.CallerName)
+		d.Set("caller_id", nil)
+		if currentSite.CallerId != nil && *currentSite.CallerId != "" {
+			_ = d.Set("caller_id", utilE164.FormatAsCalculatedE164Number(*currentSite.CallerId))
+		}
+		_ = d.Set("caller_name", currentSite.CallerName)
 
 		if currentSite.PrimarySites != nil {
-			d.Set("primary_sites", util.SdkDomainEntityRefArrToList(*currentSite.PrimarySites))
+			_ = d.Set("primary_sites", util.SdkDomainEntityRefArrToList(*currentSite.PrimarySites))
 		}
 
 		if currentSite.SecondarySites != nil {
-			d.Set("secondary_sites", util.SdkDomainEntityRefArrToList(*currentSite.SecondarySites))
+			_ = d.Set("secondary_sites", util.SdkDomainEntityRefArrToList(*currentSite.SecondarySites))
 		}
 
 		if retryErr := readSiteNumberPlans(ctx, sp, d); retryErr != nil {
 			return retryErr
 		}
 
-		if retryErr := readSiteOutboundRoutes(ctx, sp, d); retryErr != nil {
-			return retryErr
+		if !featureToggles.OutboundRoutesToggleExists() {
+			if retryErr := readSiteOutboundRoutes(ctx, sp, d); retryErr != nil {
+				return retryErr
+			}
+		} else {
+			log.Printf("%s is set, not managing outbound_routes attribute in site %s resource", featureToggles.OutboundRoutesToggleName(), d.Id())
 		}
 
 		defaultSiteId, resp, err := sp.getDefaultSiteId(ctx)
 		if err != nil {
 			return retry.NonRetryableError(util.BuildWithRetriesApiDiagnosticError(resourceName, fmt.Sprintf("failed to get default site id: %v", err), resp))
 		}
-		d.Set("set_as_default_site", defaultSiteId == *currentSite.Id)
+		_ = d.Set("set_as_default_site", defaultSiteId == *currentSite.Id)
 
 		log.Printf("Read site %s %s", d.Id(), *currentSite.Name)
 		return cc.CheckState(d)
@@ -192,7 +212,7 @@ func readSite(ctx context.Context, d *schema.ResourceData, meta interface{}) dia
 
 func updateSite(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	sdkConfig := meta.(*provider.ProviderMeta).ClientConfig
-	sp := getSiteProxy(sdkConfig)
+	sp := GetSiteProxy(sdkConfig)
 
 	site := &platformclientv2.Site{
 		Name:                        platformclientv2.String(d.Get("name").(string)),
@@ -269,9 +289,13 @@ func updateSite(ctx context.Context, d *schema.ResourceData, meta interface{}) d
 		return diagErr
 	}
 
-	diagErr = updateSiteOutboundRoutes(ctx, sp, d)
-	if diagErr != nil {
-		return diagErr
+	if !featureToggles.OutboundRoutesToggleExists() {
+		diagErr = updateSiteOutboundRoutes(ctx, sp, d)
+		if diagErr != nil {
+			return diagErr
+		}
+	} else {
+		log.Printf("%s is set, not managing outbound_routes attribute in site %s resource", featureToggles.OutboundRoutesToggleName(), d.Id())
 	}
 
 	if d.Get("set_as_default_site").(bool) {
@@ -289,16 +313,25 @@ func updateSite(ctx context.Context, d *schema.ResourceData, meta interface{}) d
 
 func deleteSite(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	sdkConfig := meta.(*provider.ProviderMeta).ClientConfig
-	sp := getSiteProxy(sdkConfig)
+	sp := GetSiteProxy(sdkConfig)
 
-	log.Printf("Deleting site")
-	resp, err := sp.deleteSite(ctx, d.Id())
-	if err != nil {
-		if util.IsStatus404(resp) {
-			log.Printf("Site already deleted %s", d.Id())
-			return nil
+	// A site linked to a trunk will not be able to be deleted until that trunk is deleted. Retrying here to make sure it is cleared properly.
+	log.Printf("Deleting site %s", d.Id())
+	diagErr := util.RetryWhen(util.IsStatus409, func() (*platformclientv2.APIResponse, diag.Diagnostics) {
+		log.Printf("Deleting site %s", d.Id())
+		resp, err := sp.deleteSite(ctx, d.Id())
+		if err != nil {
+			if util.IsStatus404(resp) {
+				log.Printf("Site already deleted %s", d.Id())
+				return resp, nil
+			}
+			return resp, util.BuildAPIDiagnosticError(resourceName, fmt.Sprintf("Failed to delete site %s error: %s", d.Id(), err), resp)
 		}
-		return util.BuildAPIDiagnosticError(resourceName, fmt.Sprintf("Failed to delete site %s error: %s", d.Id(), err), resp)
+		return resp, nil
+	})
+
+	if diagErr != nil {
+		return diagErr
 	}
 
 	return util.WithRetries(ctx, 30*time.Second, func() *retry.RetryError {

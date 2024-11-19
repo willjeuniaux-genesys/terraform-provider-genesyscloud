@@ -1,13 +1,15 @@
 package telephony_providers_edges_site
 
 import (
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
-	"github.com/mypurecloud/platform-client-sdk-go/v129/platformclientv2"
+	"fmt"
 	"terraform-provider-genesyscloud/genesyscloud/provider"
 	resourceExporter "terraform-provider-genesyscloud/genesyscloud/resource_exporter"
 	registrar "terraform-provider-genesyscloud/genesyscloud/resource_register"
-	gcloud "terraform-provider-genesyscloud/genesyscloud/validators"
+	"terraform-provider-genesyscloud/genesyscloud/validators"
+
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/mypurecloud/platform-client-sdk-go/v143/platformclientv2"
 )
 
 /*
@@ -89,7 +91,7 @@ func ResourceSite() *schema.Resource {
 				Description:      "A reoccurring rule for updating the Edges assigned to the site. The only supported frequencies are daily and weekly. Weekly frequencies require a day list with at least oneday specified. All other configurations are not supported.",
 				Type:             schema.TypeString,
 				Required:         true,
-				ValidateDiagFunc: gcloud.ValidateRrule,
+				ValidateDiagFunc: validators.ValidateRrule,
 			},
 			"start": {
 				Description: "Date time is represented as an ISO-8601 string without a timezone. For example: yyyy-MM-ddTHH:mm:ss.SSS",
@@ -220,7 +222,7 @@ func ResourceSite() *schema.Resource {
 				Description:      "The caller ID value for the site. The callerID must be a valid E.164 formatted phone number",
 				Type:             schema.TypeString,
 				Optional:         true,
-				ValidateDiagFunc: gcloud.ValidatePhoneNumber,
+				ValidateDiagFunc: validators.ValidatePhoneNumber,
 			},
 			"caller_name": {
 				Description: "The caller name for the site",
@@ -248,6 +250,7 @@ func ResourceSite() *schema.Resource {
 				Computed:    true,
 				ConfigMode:  schema.SchemaConfigModeAttr,
 				Elem:        outboundRouteSchema,
+				Deprecated:  fmt.Sprintf("The outbound routes property is deprecated in %s, please use independent outbound routes resource instead, genesyscloud_telephony_providers_edges_site_outbound_route", resourceName),
 			},
 			"primary_sites": {
 				Description: `Used for primary phone edge assignment on physical edges only.  List of primary sites the phones can be assigned to. If no primary_sites are defined, the site id for this site will be used as the primary site id.`,
@@ -277,7 +280,7 @@ func ResourceSite() *schema.Resource {
 // SiteExporter returns the resourceExporter object used to hold the genesyscloud_telephony_providers_edges_site exporter's config
 func SiteExporter() *resourceExporter.ResourceExporter {
 	return &resourceExporter.ResourceExporter{
-		GetResourcesFunc: provider.GetAllWithPooledClient(getSites),
+		GetResourcesFunc: provider.GetAllWithPooledClient(getAllSites),
 		RefAttrs: map[string]*resourceExporter.RefAttrSettings{
 			"location_id": {RefType: "genesyscloud_location"},
 			"outbound_routes.external_trunk_base_ids": {RefType: "genesyscloud_telephony_providers_edges_trunkbasesettings"},
@@ -300,12 +303,6 @@ func DataSourceSite() *schema.Resource {
 				Description: "Site name.",
 				Type:        schema.TypeString,
 				Required:    true,
-			},
-			"managed": {
-				Description: "Return entities that are managed by Genesys Cloud.",
-				Type:        schema.TypeBool,
-				Optional:    true,
-				Default:     false,
 			},
 		},
 	}

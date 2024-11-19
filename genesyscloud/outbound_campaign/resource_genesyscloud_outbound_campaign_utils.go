@@ -5,20 +5,20 @@ import (
 	"fmt"
 	"log"
 	"strconv"
-	gcloud "terraform-provider-genesyscloud/genesyscloud"
 	"terraform-provider-genesyscloud/genesyscloud/architect_flow"
 	obResponseSet "terraform-provider-genesyscloud/genesyscloud/outbound_callanalysisresponseset"
 	obContactList "terraform-provider-genesyscloud/genesyscloud/outbound_contact_list"
 	obContactListFilter "terraform-provider-genesyscloud/genesyscloud/outbound_contactlistfilter"
 	obDnclist "terraform-provider-genesyscloud/genesyscloud/outbound_dnclist"
 	routingQueue "terraform-provider-genesyscloud/genesyscloud/routing_queue"
+	routingWrapupcode "terraform-provider-genesyscloud/genesyscloud/routing_wrapupcode"
 	"terraform-provider-genesyscloud/genesyscloud/util"
 	"terraform-provider-genesyscloud/genesyscloud/util/resourcedata"
 
 	"github.com/google/uuid"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/mypurecloud/platform-client-sdk-go/v129/platformclientv2"
+	"github.com/mypurecloud/platform-client-sdk-go/v143/platformclientv2"
 )
 
 /*
@@ -35,6 +35,7 @@ func getOutboundCampaignFromResourceData(d *schema.ResourceData) platformclientv
 	noAnswerTimeout := d.Get("no_answer_timeout").(int)
 	callAnalysisLanguage := d.Get("call_analysis_language").(string)
 	priority := d.Get("priority").(int)
+	maxCallsPerAgent := d.Get("max_calls_per_agent").(int)
 
 	campaign := platformclientv2.Campaign{
 		Name:                           platformclientv2.String(d.Get("name").(string)),
@@ -58,6 +59,7 @@ func getOutboundCampaignFromResourceData(d *schema.ResourceData) platformclientv
 		ContactListFilters:             util.BuildSdkDomainEntityRefArr(d, "contact_list_filter_ids"),
 		Division:                       util.BuildSdkDomainEntityRef(d, "division_id"),
 		DynamicContactQueueingSettings: buildSettings(d.Get("dynamic_contact_queueing_settings").([]interface{})),
+		DynamicLineBalancingSettings:   buildLineBalancingSettings(d.Get("dynamic_line_balancing_settings").([]interface{})),
 	}
 
 	if abandonRate != 0 {
@@ -77,6 +79,9 @@ func getOutboundCampaignFromResourceData(d *schema.ResourceData) platformclientv
 	}
 	if priority != 0 {
 		campaign.Priority = &priority
+	}
+	if maxCallsPerAgent != 0 {
+		campaign.MaxCallsPerAgent = &maxCallsPerAgent
 	}
 	return campaign
 }
@@ -148,6 +153,24 @@ func buildContactSorts(contactSortList []interface{}) *[]platformclientv2.Contac
 	return &sdkContactsortSlice
 }
 
+func buildLineBalancingSettings(settings []interface{}) *platformclientv2.Dynamiclinebalancingsettings {
+	if settings == nil || len(settings) < 1 {
+		return nil
+	}
+	var sdkLineBalancingSettings platformclientv2.Dynamiclinebalancingsettings
+	lbSetting, ok := settings[0].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	if enabled, ok := lbSetting["enabled"].(bool); ok {
+		sdkLineBalancingSettings.Enabled = platformclientv2.Bool(enabled)
+	}
+	if weight, ok := lbSetting["relative_weight"].(int); ok {
+		sdkLineBalancingSettings.RelativeWeight = platformclientv2.Int(weight)
+	}
+	return &sdkLineBalancingSettings
+}
+
 func flattenSettings(settings *platformclientv2.Dynamiccontactqueueingsettings) []interface{} {
 	settingsMap := make(map[string]interface{}, 0)
 	settingsMap["sort"] = *settings.Sort
@@ -188,6 +211,13 @@ func flattenContactSorts(contactSorts *[]platformclientv2.Contactsort) []interfa
 	return contactSortList
 }
 
+func flattenLineBalancingSettings(settings *platformclientv2.Dynamiclinebalancingsettings) []interface{} {
+	settingsMap := make(map[string]interface{}, 0)
+	settingsMap["enabled"] = *settings.Enabled
+	resourcedata.SetMapValueIfNotNil(settingsMap, "relative_weight", settings.RelativeWeight)
+	return []interface{}{settingsMap}
+}
+
 func GenerateOutboundCampaignBasic(resourceId string,
 	name string,
 	contactListResourceId string,
@@ -200,7 +230,8 @@ func GenerateOutboundCampaignBasic(resourceId string,
 	flowName string,
 	divisionName,
 	locationResourceId string,
-	wrapupcodeResourceId string) string {
+	wrapupcodeResourceId string,
+	divResourceId string) string {
 	referencedResources := GenerateReferencedResourcesForOutboundCampaignTests(
 		contactListResourceId,
 		"",
@@ -217,6 +248,7 @@ func GenerateOutboundCampaignBasic(resourceId string,
 		divisionName,
 		locationResourceId,
 		wrapupcodeResourceId,
+		divResourceId,
 	)
 	return fmt.Sprintf(`
 resource "genesyscloud_outbound_campaign" "%s" {
@@ -253,6 +285,7 @@ func GenerateReferencedResourcesForOutboundCampaignTests(
 	divisionName string,
 	locationResourceId string,
 	wrapUpCodeResourceId string,
+	divResourceId string,
 ) string {
 	var (
 		contactList             string
@@ -286,9 +319,10 @@ func GenerateReferencedResourcesForOutboundCampaignTests(
 	}
 	if carResourceId != "" {
 		if outboundFlowFilePath != "" {
-			callAnalysisResponseSet = gcloud.GenerateRoutingWrapupcodeResource(
+			callAnalysisResponseSet = routingWrapupcode.GenerateRoutingWrapupcodeResource(
 				wrapUpCodeResourceId,
 				"wrapupcode "+uuid.NewString(),
+				"genesyscloud_auth_division."+divResourceId+".id",
 			) + architect_flow.GenerateFlowResource(
 				flowResourceId,
 				outboundFlowFilePath,

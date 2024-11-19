@@ -2,9 +2,9 @@ package telephony_providers_edges_trunk
 
 import (
 	"sync"
-	gcloud "terraform-provider-genesyscloud/genesyscloud"
-
-	telephony "terraform-provider-genesyscloud/genesyscloud/telephony"
+	"terraform-provider-genesyscloud/genesyscloud/location"
+	tbs "terraform-provider-genesyscloud/genesyscloud/telephony_provider_edges_trunkbasesettings"
+	edgeGroup "terraform-provider-genesyscloud/genesyscloud/telephony_providers_edges_edge_group"
 	edgeSite "terraform-provider-genesyscloud/genesyscloud/telephony_providers_edges_site"
 	"testing"
 
@@ -24,13 +24,14 @@ func (r *registerTestInstance) registerTestResources() {
 	r.resourceMapMutex.Lock()
 	defer r.resourceMapMutex.Unlock()
 
-	providerResources["genesyscloud_telephony_providers_edges_trunkbasesettings"] = telephony.ResourceTrunkBaseSettings()
+	providerResources["genesyscloud_telephony_providers_edges_trunkbasesettings"] = tbs.ResourceTrunkBaseSettings()
 	providerResources[resourceName] = ResourceTrunk()
 
 	// external package dependencies
 	providerResources["genesyscloud_telephony_providers_edges_site"] = edgeSite.ResourceSite()
 
-	providerResources["genesyscloud_location"] = gcloud.ResourceLocation()
+	providerResources["genesyscloud_location"] = location.ResourceLocation()
+	providerResources["genesyscloud_telephony_providers_edges_edge_group"] = edgeGroup.ResourceEdgeGroup()
 
 }
 
@@ -39,10 +40,11 @@ func (r *registerTestInstance) registerTestDataSources() {
 	r.datasourceMapMutex.Lock()
 	defer r.datasourceMapMutex.Unlock()
 
-	providerDataSources["genesyscloud_telephony_providers_edges_trunkbasesettings"] = telephony.DataSourceTrunkBaseSettings()
+	providerDataSources["genesyscloud_telephony_providers_edges_trunkbasesettings"] = tbs.DataSourceTrunkBaseSettings()
 	providerDataSources[resourceName] = DataSourceTrunk()
 	// external package dependencies
 	providerDataSources["genesyscloud_telephony_providers_edges_site"] = edgeSite.DataSourceSite()
+	providerDataSources["genesyscloud_telephony_providers_edges_edge_group"] = edgeGroup.DataSourceEdgeGroup()
 
 }
 

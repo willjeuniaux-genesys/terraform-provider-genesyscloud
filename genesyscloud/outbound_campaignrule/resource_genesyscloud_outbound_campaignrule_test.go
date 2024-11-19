@@ -3,17 +3,17 @@ package outbound_campaignrule
 import (
 	"fmt"
 	"math/rand"
-	"path/filepath"
 	"strings"
 	outboundSequence "terraform-provider-genesyscloud/genesyscloud/outbound_sequence"
 	"terraform-provider-genesyscloud/genesyscloud/provider"
 	"terraform-provider-genesyscloud/genesyscloud/util"
+	"terraform-provider-genesyscloud/genesyscloud/util/testrunner"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
-	"github.com/mypurecloud/platform-client-sdk-go/v129/platformclientv2"
+	"github.com/mypurecloud/platform-client-sdk-go/v143/platformclientv2"
 )
 
 func TestAccResourceOutboundCampaignRuleBasic(t *testing.T) {
@@ -597,7 +597,7 @@ func generateCampaignResourceForCampaignRuleTests(
 	carResourceId,
 	carName string) string {
 
-	fullyQualifiedPath, _ := filepath.Abs(flowFilePath)
+	fullyQualifiedPath, _ := testrunner.NormalizePath(flowFilePath)
 
 	return fmt.Sprintf(`
 resource "genesyscloud_outbound_campaign" "%s" {

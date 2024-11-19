@@ -18,7 +18,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/mypurecloud/platform-client-sdk-go/v129/platformclientv2"
+	"github.com/mypurecloud/platform-client-sdk-go/v143/platformclientv2"
 )
 
 func getAllOutboundDncLists(ctx context.Context, clientConfig *platformclientv2.Configuration) (resourceExporter.ResourceIDMetaMap, diag.Diagnostics) {
@@ -89,7 +89,7 @@ func createOutboundDncList(ctx context.Context, d *schema.ResourceData, meta int
 				}
 			}
 		} else {
-			return util.BuildDiagnosticError(resourceName, fmt.Sprintf("Phone numbers can only be uploaded to internal DNC lists."), fmt.Errorf("phone numbers can only be uploaded to internal DNC Lists"))
+			return util.BuildDiagnosticError(resourceName, "Phone numbers can only be uploaded to internal DNC lists.", fmt.Errorf("phone numbers can only be uploaded to internal DNC Lists"))
 		}
 	}
 	log.Printf("Created Outbound DNC list %s %s", name, *outboundDncList.Id)
@@ -153,7 +153,7 @@ func updateOutboundDncList(ctx context.Context, d *schema.ResourceData, meta int
 					}
 				}
 			} else {
-				return nil, util.BuildDiagnosticError(resourceName, fmt.Sprintf("Phone numbers can only be uploaded to internal DNC lists"), fmt.Errorf("phone numbers can only be uploaded to internal DNC lists"))
+				return nil, util.BuildDiagnosticError(resourceName, "Phone numbers can only be uploaded to internal DNC lists", fmt.Errorf("phone numbers can only be uploaded to internal DNC lists"))
 			}
 		}
 		return nil, nil

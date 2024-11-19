@@ -3,11 +3,12 @@ package resource_exporter
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/mypurecloud/platform-client-sdk-go/v129/platformclientv2"
 	"log"
 	"regexp"
 	"strings"
 	"terraform-provider-genesyscloud/genesyscloud/util/constants"
+
+	"github.com/mypurecloud/platform-client-sdk-go/v143/platformclientv2"
 )
 
 /*
@@ -139,7 +140,8 @@ This customer custom router will look at the skills array if present and resolve
 func RuleSetSkillPropertyResolver(configMap map[string]interface{}, exporters map[string]*ResourceExporter, resourceName string) error {
 
 	if exporter, ok := exporters["genesyscloud_routing_skill"]; ok {
-		skillIDs := configMap["skills"].(string)
+
+		skillIDs, _ := configMap["skills"].(string)
 
 		if len(skillIDs) == 0 {
 			return nil
@@ -162,7 +164,6 @@ func RuleSetSkillPropertyResolver(configMap map[string]interface{}, exporters ma
 					sanitisedSkillIds = append(sanitisedSkillIds, fmt.Sprintf("${genesyscloud_routing_skill.%s.id}", exportId))
 				} else {
 					log.Printf("Skill '%s' does not exist in the skill map.\n", skillId)
-					sanitisedSkillIds = append(sanitisedSkillIds, fmt.Sprintf("skill_%s_not_found", skillId))
 				}
 			}
 
@@ -192,7 +193,8 @@ func CampaignStatusResolver(configMap map[string]interface{}, exporters map[stri
 }
 
 func ReplyEmailAddressSelfReferenceRouteExporterResolver(configMap map[string]interface{}, exporters map[string]*ResourceExporter, resourceName string) error {
-	routeId := configMap["route_id"].(string)
+
+	routeId, _ := configMap["route_id"].(string)
 	currentRouteReference := fmt.Sprintf("${genesyscloud_routing_email_route.%s.id}", resourceName)
 	if routeId == currentRouteReference {
 		configMap["self_reference_route"] = true

@@ -3,13 +3,13 @@ package telephony_providers_edges_site
 import (
 	"log"
 	"sync"
+	"terraform-provider-genesyscloud/genesyscloud/location"
 	"terraform-provider-genesyscloud/genesyscloud/provider"
+	tbs "terraform-provider-genesyscloud/genesyscloud/telephony_provider_edges_trunkbasesettings"
 	"testing"
 
-	gcloud "terraform-provider-genesyscloud/genesyscloud"
-	telephony "terraform-provider-genesyscloud/genesyscloud/telephony"
-
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	gcloud "terraform-provider-genesyscloud/genesyscloud"
 )
 
 /*
@@ -36,8 +36,8 @@ func (r *registerTestInstance) registerTestResources() {
 	defer r.resourceMapMutex.Unlock()
 
 	providerResources[resourceName] = ResourceSite()
-	providerResources["genesyscloud_location"] = gcloud.ResourceLocation()
-	providerResources["genesyscloud_telephony_providers_edges_trunkbasesettings"] = telephony.ResourceTrunkBaseSettings()
+	providerResources["genesyscloud_location"] = location.ResourceLocation()
+	providerResources["genesyscloud_telephony_providers_edges_trunkbasesettings"] = tbs.ResourceTrunkBaseSettings()
 }
 
 // registerTestDataSources registers all data sources used in the tests.

@@ -14,13 +14,12 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
-	"github.com/mypurecloud/platform-client-sdk-go/v129/platformclientv2"
+	"github.com/mypurecloud/platform-client-sdk-go/v143/platformclientv2"
 )
 
 const resourceName = "genesyscloud_journey_action_map"
 
 func TestAccResourceJourneyActionMapActionMediaTypes(t *testing.T) {
-	t.Skip("Customer segment not implemented")
 	runJourneyActionMapTestCaseWithFileServer(t, "action_media_types", 8111)
 }
 
@@ -29,17 +28,14 @@ func TestAccResourceJourneyActionMapActionMediaTypesWithTriggerConditions(t *tes
 }
 
 func TestAccResourceJourneyActionMapOptionalAttributes(t *testing.T) {
-	t.Skip("Customer segment not implemented")
 	runJourneyActionMapTestCase(t, "basic_optional_attributes")
 }
 
 func TestAccResourceJourneyActionMapRequiredAttributes(t *testing.T) {
-	t.Skip("Customer segment not implemented")
 	runJourneyActionMapTestCaseWithFileServer(t, "basic_required_attributes", 8112)
 }
 
 func TestAccResourceJourneyActionMapScheduleGroups(t *testing.T) {
-	t.Skip("Customer segment not implemented")
 	runJourneyActionMapTestCase(t, "schedule_groups")
 }
 
@@ -105,6 +101,33 @@ func cleanupJourneyActionMaps(idPrefix string) {
 		}
 
 		pageCount = *actionMaps.PageCount
+	}
+}
+
+func cleanupArchitectSchedules(idPrefix string) {
+	architectApi := platformclientv2.NewArchitectApi()
+
+	for pageNum := 1; ; pageNum++ {
+		const pageSize = 100
+		architectSchedules, _, getErr := architectApi.GetArchitectSchedules(pageNum, pageSize, "", "", "", nil)
+		if getErr != nil {
+			return
+		}
+
+		if architectSchedules.Entities == nil || len(*architectSchedules.Entities) == 0 {
+			break
+		}
+
+		for _, schedule := range *architectSchedules.Entities {
+			if schedule.Name != nil && strings.HasPrefix(*schedule.Name, idPrefix) {
+				resp, delErr := architectApi.DeleteArchitectSchedule(*schedule.Id)
+				if delErr != nil {
+					util.BuildAPIDiagnosticError("genesyscloud_architect_schedules", fmt.Sprintf("failed to delete architect schedule %s (%s): %s", *schedule.Id, *schedule.Name, delErr), resp)
+					return
+				}
+				log.Printf("Deleted architect schedule %s (%s)", *schedule.Id, *schedule.Name)
+			}
+		}
 	}
 }
 

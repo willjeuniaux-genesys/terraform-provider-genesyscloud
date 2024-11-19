@@ -7,6 +7,7 @@ import (
 	"terraform-provider-genesyscloud/genesyscloud/provider"
 	"terraform-provider-genesyscloud/genesyscloud/util"
 	"testing"
+	"time"
 
 	"terraform-provider-genesyscloud/genesyscloud/integration"
 	integrationCred "terraform-provider-genesyscloud/genesyscloud/integration_credential"
@@ -14,7 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
-	"github.com/mypurecloud/platform-client-sdk-go/v129/platformclientv2"
+	"github.com/mypurecloud/platform-client-sdk-go/v143/platformclientv2"
 )
 
 type customAuthActionResource struct {
@@ -53,7 +54,9 @@ func TestAccResourceIntegrationCustomAuthAction(t *testing.T) {
 			strconv.Quote(credentialResourceName),
 			strconv.Quote(customAuthCredentialType),
 			integrationCred.GenerateCredentialFields(
-				util.GenerateMapProperty(credKey1, strconv.Quote(credVal1)),
+				map[string]string{
+					credKey1: strconv.Quote(credVal1),
+				},
 			),
 		)
 
@@ -180,6 +183,12 @@ func TestAccResourceIntegrationCustomAuthAction(t *testing.T) {
 				ResourceName:      "genesyscloud_integration_custom_auth_action." + actionResource1,
 				ImportState:       true,
 				ImportStateVerify: true,
+				Check: resource.ComposeTestCheckFunc(
+					func(s *terraform.State) error {
+						time.Sleep(30 * time.Second) // Wait for 30 seconds for proper deletion
+						return nil
+					},
+				),
 			},
 		},
 		CheckDestroy: testVerifyIntegrationActionDestroyed,

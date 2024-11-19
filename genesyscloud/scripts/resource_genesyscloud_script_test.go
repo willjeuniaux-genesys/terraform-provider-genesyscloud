@@ -7,12 +7,13 @@ import (
 	"path/filepath"
 	"terraform-provider-genesyscloud/genesyscloud/provider"
 	"terraform-provider-genesyscloud/genesyscloud/util"
+	"terraform-provider-genesyscloud/genesyscloud/util/testrunner"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
-	"github.com/mypurecloud/platform-client-sdk-go/v129/platformclientv2"
+	"github.com/mypurecloud/platform-client-sdk-go/v143/platformclientv2"
 )
 
 /*
@@ -162,7 +163,8 @@ func getScriptId(scriptResourceName string, id *string) resource.TestCheckFunc {
 }
 
 func generateScriptResource(resourceId, scriptName, filePath, substitutions string) string {
-	fullyQualifiedPath, _ := filepath.Abs(filePath)
+	fullyQualifiedPath, _ := testrunner.NormalizePath(filePath)
+	normalizeFilePath := testrunner.NormalizeSlash(filePath)
 	return fmt.Sprintf(`
 resource "%s" "%s" {
 	script_name       = "%s"
@@ -170,7 +172,7 @@ resource "%s" "%s" {
 	file_content_hash = filesha256("%s")
 	%s
 }	
-	`, resourceName, resourceId, scriptName, filePath, fullyQualifiedPath, substitutions)
+	`, resourceName, resourceId, scriptName, normalizeFilePath, fullyQualifiedPath, substitutions)
 }
 
 func testVerifyScriptDestroyed(state *terraform.State) error {

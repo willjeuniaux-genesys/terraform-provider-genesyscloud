@@ -3,10 +3,6 @@ package responsemanagement_responseasset
 import (
 	"context"
 	"fmt"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/mypurecloud/platform-client-sdk-go/v129/platformclientv2"
 	"log"
 	"terraform-provider-genesyscloud/genesyscloud/consistency_checker"
 	"terraform-provider-genesyscloud/genesyscloud/provider"
@@ -15,6 +11,11 @@ import (
 	"terraform-provider-genesyscloud/genesyscloud/util/constants"
 	"terraform-provider-genesyscloud/genesyscloud/util/files"
 	"time"
+
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/mypurecloud/platform-client-sdk-go/v143/platformclientv2"
 )
 
 /*
@@ -95,10 +96,10 @@ func readRespManagementRespAsset(ctx context.Context, d *schema.ResourceData, me
 			return retry.NonRetryableError(util.BuildWithRetriesApiDiagnosticError(resourceName, fmt.Sprintf("failed to read response asset %s | error: %s", d.Id(), getErr), resp))
 		}
 
-		d.Set("filename", *sdkAsset.Name)
+		_ = d.Set("filename", *sdkAsset.Name)
 
 		if sdkAsset.Division != nil && sdkAsset.Division.Id != nil {
-			d.Set("division_id", *sdkAsset.Division.Id)
+			_ = d.Set("division_id", *sdkAsset.Division.Id)
 		}
 
 		log.Printf("Read Responsemanagement response asset %s %s", d.Id(), *sdkAsset.Name)

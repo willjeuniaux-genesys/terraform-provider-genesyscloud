@@ -3,12 +3,13 @@ package tfexporter
 import (
 	"context"
 	"fmt"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/mypurecloud/platform-client-sdk-go/v129/platformclientv2"
 	"reflect"
 	"terraform-provider-genesyscloud/genesyscloud/provider"
 	resourceExporter "terraform-provider-genesyscloud/genesyscloud/resource_exporter"
 	"terraform-provider-genesyscloud/genesyscloud/util"
+
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/mypurecloud/platform-client-sdk-go/v143/platformclientv2"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
@@ -23,6 +24,42 @@ type PostProcessHclBytesTestCase struct {
 	original   string
 	expected   string
 	decodedMap map[string]string
+}
+
+// Test case for updateInstanceStateAttributes
+func TestUnitUpdateInstanceStateAttributes(t *testing.T) {
+	jsonResult := util.JsonMap{
+		"file_content_hash": "${filesha256(\"file_fr.json\")}",
+		"file_name":         "444",
+	}
+
+	// Mock initial resource attributes to simulate current state
+	initialAttributes := map[string]string{
+		"file_content_hash": "",
+		"file_name":         "",
+	}
+
+	// Create an instance of ResourceInfo
+	resources := []resourceExporter.ResourceInfo{
+		{
+			Name: "testResourceName",
+			Type: "testResourceType",
+			State: &terraform.InstanceState{
+				ID:         "testResourceId",
+				Attributes: initialAttributes,
+			},
+		},
+	}
+
+	exporter := GenesysCloudResourceExporter{}
+	exporter.updateInstanceStateAttributes(jsonResult, resources[0])
+
+	expectedAttributes := map[string]string{
+		"file_content_hash": "${filesha256(\"file_fr.json\")}",
+		"file_name":         "444",
+	}
+
+	assert.Equal(t, expectedAttributes, resources[0].State.Attributes, "Attributes should be correctly updated")
 }
 
 func TestUnitTfExportPostProcessHclBytesFunc(t *testing.T) {
@@ -135,6 +172,51 @@ func TestUnitTfExportRemoveZeroValuesFunc(t *testing.T) {
 	}
 	if m["zeroInt"] != nil {
 		t.Errorf("Expected 'zeroInt' map item to be: nil, got: %v", m["zeroInt"])
+	}
+}
+
+// TestUnitComputeDependsOn will test computeDependsOn function
+func TestUnitComputeDependsOn(t *testing.T) {
+
+	createResourceData := func(enableDependencyResolution bool, includeFilterResources []interface{}) *schema.ResourceData {
+
+		resourceSchema := map[string]*schema.Schema{
+			"enable_dependency_resolution": {
+				Type:     schema.TypeBool,
+				Optional: true,
+				Default:  false,
+			},
+			"include_filter_resources": {
+				Type:     schema.TypeList,
+				Elem:     &schema.Schema{Type: schema.TypeString},
+				Optional: true,
+			},
+		}
+
+		data := schema.TestResourceDataRaw(t, resourceSchema, map[string]interface{}{
+			"enable_dependency_resolution": enableDependencyResolution,
+			"include_filter_resources":     includeFilterResources,
+		})
+		return data
+	}
+
+	tests := []struct {
+		enableDependencyResolution bool
+		includeFilterResources     []interface{}
+		expected                   bool
+	}{
+		{true, []interface{}{"resource1", "resource2"}, true},
+		{true, []interface{}{}, false},
+		{false, []interface{}{"resource1"}, false},
+		{false, []interface{}{}, false},
+	}
+
+	for _, test := range tests {
+		data := createResourceData(test.enableDependencyResolution, test.includeFilterResources)
+		result := computeDependsOn(data)
+		if result != test.expected {
+			t.Errorf("computeDependsOn(%v, %v) = %v; want %v", test.enableDependencyResolution, test.includeFilterResources, result, test.expected)
+		}
 	}
 }
 

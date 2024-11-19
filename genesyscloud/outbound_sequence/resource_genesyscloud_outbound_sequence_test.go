@@ -8,12 +8,13 @@ import (
 	"terraform-provider-genesyscloud/genesyscloud/util"
 	"testing"
 
+	authDivision "terraform-provider-genesyscloud/genesyscloud/auth_division"
 	edgeSite "terraform-provider-genesyscloud/genesyscloud/telephony_providers_edges_site"
 
 	"github.com/google/uuid"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
-	"github.com/mypurecloud/platform-client-sdk-go/v129/platformclientv2"
+	"github.com/mypurecloud/platform-client-sdk-go/v143/platformclientv2"
 )
 
 func TestAccResourceOutboundSequence(t *testing.T) {
@@ -33,6 +34,8 @@ func TestAccResourceOutboundSequence(t *testing.T) {
 		outboundFlowFilePath  = "../../examples/resources/genesyscloud_flow/outboundcall_flow_example.yaml"
 		flowName              = "test flow " + uuid.NewString()
 		emergencyNumber       = "+13172947329"
+		divResourceId         = "test-outbound-sequence-division"
+		divName               = "terraform-" + uuid.NewString()
 	)
 
 	if err := edgeSite.DeleteLocationWithNumber(emergencyNumber, sdkConfig); err != nil {
@@ -45,23 +48,24 @@ func TestAccResourceOutboundSequence(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				// Create
-				Config: fmt.Sprintf(`
-data "genesyscloud_auth_division_home" "home" {}
-`) + outboundCampaign.GenerateOutboundCampaignBasic(
-					campaignResourceId,
-					campaignName,
-					contactListResourceId,
-					siteId,
-					emergencyNumber,
-					carResourceId,
-					util.NullValue,
-					outboundFlowFilePath,
-					"sequence-test-flow",
-					flowName,
-					"${data.genesyscloud_auth_division_home.home.name}",
-					"sequence-test-location",
-					"sequence-test-wrapupcode",
-				) + GenerateOutboundSequence(
+				Config: `data "genesyscloud_auth_division_home" "home" {}` + "\n" +
+					authDivision.GenerateAuthDivisionBasic(divResourceId, divName) +
+					outboundCampaign.GenerateOutboundCampaignBasic(
+						campaignResourceId,
+						campaignName,
+						contactListResourceId,
+						siteId,
+						emergencyNumber,
+						carResourceId,
+						util.NullValue,
+						outboundFlowFilePath,
+						"sequence-test-flow",
+						flowName,
+						"${data.genesyscloud_auth_division_home.home.name}",
+						"sequence-test-location",
+						"sequence-test-wrapupcode",
+						divResourceId,
+					) + GenerateOutboundSequence(
 					sequenceResource,
 					sequenceName1,
 					[]string{"genesyscloud_outbound_campaign." + campaignResourceId + ".id"},
@@ -78,23 +82,24 @@ data "genesyscloud_auth_division_home" "home" {}
 			},
 			{
 				// Update with a new name, status and repeat value
-				Config: fmt.Sprintf(`
-data "genesyscloud_auth_division_home" "home" {}
-`) + outboundCampaign.GenerateOutboundCampaignBasic(
-					campaignResourceId,
-					campaignName,
-					contactListResourceId,
-					siteId,
-					emergencyNumber,
-					carResourceId,
-					util.NullValue,
-					outboundFlowFilePath,
-					"sequence-test-flow",
-					flowName,
-					"${data.genesyscloud_auth_division_home.home.name}",
-					"sequence-test-location",
-					"sequence-test-wrapupcode",
-				) + GenerateOutboundSequence(
+				Config: `data "genesyscloud_auth_division_home" "home" {}` + "\n" +
+					authDivision.GenerateAuthDivisionBasic(divResourceId, divName) +
+					outboundCampaign.GenerateOutboundCampaignBasic(
+						campaignResourceId,
+						campaignName,
+						contactListResourceId,
+						siteId,
+						emergencyNumber,
+						carResourceId,
+						util.NullValue,
+						outboundFlowFilePath,
+						"sequence-test-flow",
+						flowName,
+						"${data.genesyscloud_auth_division_home.home.name}",
+						"sequence-test-location",
+						"sequence-test-wrapupcode",
+						divResourceId,
+					) + GenerateOutboundSequence(
 					sequenceResource,
 					sequenceName2,
 					[]string{"genesyscloud_outbound_campaign." + campaignResourceId + ".id"},
@@ -137,6 +142,8 @@ func TestAccResourceOutboundSequenceStatus(t *testing.T) {
 		outboundFlowFilePath  = "../../examples/resources/genesyscloud_flow/outboundcall_flow_example.yaml"
 		flowName              = "test flow " + uuid.NewString()
 		emergencyNumber       = "+13172947330"
+		divResourceId         = "test-outbound-sequence-division"
+		divName               = "terraform-" + uuid.NewString()
 	)
 
 	if err := edgeSite.DeleteLocationWithNumber(emergencyNumber, sdkConfig); err != nil {
@@ -149,23 +156,24 @@ func TestAccResourceOutboundSequenceStatus(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				// Create
-				Config: fmt.Sprintf(`
-data "genesyscloud_auth_division_home" "home" {}
-`) + outboundCampaign.GenerateOutboundCampaignBasic(
-					campaignResourceId,
-					campaignName,
-					contactListResourceId,
-					siteId,
-					emergencyNumber,
-					carResourceId,
-					util.NullValue,
-					outboundFlowFilePath,
-					"sequence-test-flow",
-					flowName,
-					"${data.genesyscloud_auth_division_home.home.name}",
-					"sequence-test-location",
-					"sequence-test-wrapupcode",
-				) + GenerateOutboundSequence(
+				Config: `data "genesyscloud_auth_division_home" "home" {}` + "\n" +
+					authDivision.GenerateAuthDivisionBasic(divResourceId, divName) +
+					outboundCampaign.GenerateOutboundCampaignBasic(
+						campaignResourceId,
+						campaignName,
+						contactListResourceId,
+						siteId,
+						emergencyNumber,
+						carResourceId,
+						util.NullValue,
+						outboundFlowFilePath,
+						"sequence-test-flow",
+						flowName,
+						"${data.genesyscloud_auth_division_home.home.name}",
+						"sequence-test-location",
+						"sequence-test-wrapupcode",
+						divResourceId,
+					) + GenerateOutboundSequence(
 					sequenceResource,
 					sequenceName1,
 					[]string{"genesyscloud_outbound_campaign." + campaignResourceId + ".id"},
@@ -182,23 +190,24 @@ data "genesyscloud_auth_division_home" "home" {}
 			},
 			{
 				// Update with a new name, status and repeat value
-				Config: fmt.Sprintf(`
-data "genesyscloud_auth_division_home" "home" {}
-`) + outboundCampaign.GenerateOutboundCampaignBasic(
-					campaignResourceId,
-					campaignName,
-					contactListResourceId,
-					siteId,
-					emergencyNumber,
-					carResourceId,
-					util.NullValue,
-					outboundFlowFilePath,
-					"sequence-test-flow",
-					flowName,
-					"${data.genesyscloud_auth_division_home.home.name}",
-					"sequence-test-location",
-					"sequence-test-wrapupcode",
-				) + GenerateOutboundSequence(
+				Config: `data "genesyscloud_auth_division_home" "home" {}` + "\n" +
+					authDivision.GenerateAuthDivisionBasic(divResourceId, divName) +
+					outboundCampaign.GenerateOutboundCampaignBasic(
+						campaignResourceId,
+						campaignName,
+						contactListResourceId,
+						siteId,
+						emergencyNumber,
+						carResourceId,
+						util.NullValue,
+						outboundFlowFilePath,
+						"sequence-test-flow",
+						flowName,
+						"${data.genesyscloud_auth_division_home.home.name}",
+						"sequence-test-location",
+						"sequence-test-wrapupcode",
+						divResourceId,
+					) + GenerateOutboundSequence(
 					sequenceResource,
 					sequenceName2,
 					[]string{"genesyscloud_outbound_campaign." + campaignResourceId + ".id"},
@@ -216,23 +225,24 @@ data "genesyscloud_auth_division_home" "home" {}
 			{
 				// Turn back on to test that the sequence can be turned back on again, and ensure that the destroy
 				// command can handle destroying a sequence that is "on"
-				Config: fmt.Sprintf(`
-data "genesyscloud_auth_division_home" "home" {}
-`) + outboundCampaign.GenerateOutboundCampaignBasic(
-					campaignResourceId,
-					campaignName,
-					contactListResourceId,
-					siteId,
-					emergencyNumber,
-					carResourceId,
-					util.NullValue,
-					outboundFlowFilePath,
-					"sequence-test-flow",
-					flowName,
-					"${data.genesyscloud_auth_division_home.home.name}",
-					"sequence-test-location",
-					"sequence-test-wrapupcode",
-				) + GenerateOutboundSequence(
+				Config: `data "genesyscloud_auth_division_home" "home" {}` + "\n" +
+					authDivision.GenerateAuthDivisionBasic(divResourceId, divName) +
+					outboundCampaign.GenerateOutboundCampaignBasic(
+						campaignResourceId,
+						campaignName,
+						contactListResourceId,
+						siteId,
+						emergencyNumber,
+						carResourceId,
+						util.NullValue,
+						outboundFlowFilePath,
+						"sequence-test-flow",
+						flowName,
+						"${data.genesyscloud_auth_division_home.home.name}",
+						"sequence-test-location",
+						"sequence-test-wrapupcode",
+						divResourceId,
+					) + GenerateOutboundSequence(
 					sequenceResource,
 					sequenceName2,
 					[]string{"genesyscloud_outbound_campaign." + campaignResourceId + ".id"},

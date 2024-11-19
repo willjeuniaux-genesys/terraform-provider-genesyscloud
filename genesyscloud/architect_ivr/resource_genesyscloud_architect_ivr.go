@@ -18,7 +18,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/mypurecloud/platform-client-sdk-go/v129/platformclientv2"
+	"github.com/mypurecloud/platform-client-sdk-go/v143/platformclientv2"
 )
 
 // getAllIvrConfigs retrieves all architect IVRs and is used for the exporter
@@ -84,7 +84,13 @@ func readIvrConfig(ctx context.Context, d *schema.ResourceData, meta interface{}
 		}
 
 		_ = d.Set("name", *ivrConfig.Name)
-		_ = d.Set("dnis", lists.StringListToSetOrNil(ivrConfig.Dnis))
+		if ivrConfig.Dnis == nil || *ivrConfig.Dnis == nil {
+			_ = d.Set("dnis", nil)
+		} else {
+			utilE164 := util.NewUtilE164Service()
+			dnis := lists.Map(*ivrConfig.Dnis, utilE164.FormatAsCalculatedE164Number)
+			_ = d.Set("dnis", lists.StringListToSetOrNil(&dnis))
+		}
 
 		resourcedata.SetNillableValue(d, "description", ivrConfig.Description)
 		resourcedata.SetNillableReference(d, "open_hours_flow_id", ivrConfig.OpenHoursFlow)

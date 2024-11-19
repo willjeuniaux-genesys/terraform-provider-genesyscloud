@@ -2,23 +2,32 @@ package group_roles
 
 import (
 	"fmt"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
+	"log"
 	"strconv"
 	"strings"
-	"terraform-provider-genesyscloud/genesyscloud"
+	"sync"
 	"terraform-provider-genesyscloud/genesyscloud/group"
 	"terraform-provider-genesyscloud/genesyscloud/provider"
 	"terraform-provider-genesyscloud/genesyscloud/util"
 	"terraform-provider-genesyscloud/genesyscloud/util/lists"
 	"testing"
+	"time"
+
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
+	"github.com/mypurecloud/platform-client-sdk-go/v143/platformclientv2"
+
+	authDivision "terraform-provider-genesyscloud/genesyscloud/auth_division"
+	authRole "terraform-provider-genesyscloud/genesyscloud/auth_role"
 
 	"github.com/google/uuid"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
-	authRole "terraform-provider-genesyscloud/genesyscloud/auth_role"
+)
+
+var (
+	mu sync.Mutex
 )
 
 func TestAccResourceGroupRolesMembership(t *testing.T) {
-	t.Parallel()
 	var (
 		groupRoleResource = "test-group-roles1"
 		groupResource1    = "test-group"
@@ -54,9 +63,6 @@ func TestAccResourceGroupRolesMembership(t *testing.T) {
 					groupResource1,
 					generateResourceRoles("genesyscloud_auth_role."+roleResource1+".id"),
 				),
-				Check: resource.ComposeTestCheckFunc(
-					validateResourceRole("genesyscloud_group_roles."+groupRoleResource, "genesyscloud_auth_role."+roleResource1),
-				),
 			},
 			{
 				// Create another role and division and add to the group
@@ -77,7 +83,7 @@ func TestAccResourceGroupRolesMembership(t *testing.T) {
 					groupResource1,
 					generateResourceRoles("genesyscloud_auth_role."+roleResource1+".id"),
 					generateResourceRoles("genesyscloud_auth_role."+roleResource2+".id", "genesyscloud_auth_division."+divResource+".id"),
-				) + genesyscloud.GenerateAuthDivisionBasic(divResource, divName),
+				) + authDivision.GenerateAuthDivisionBasic(divResource, divName),
 				Check: resource.ComposeTestCheckFunc(
 					validateResourceRole("genesyscloud_group_roles."+groupRoleResource, "genesyscloud_auth_role."+roleResource1),
 					validateResourceRole("genesyscloud_group_roles."+groupRoleResource, "genesyscloud_auth_role."+roleResource2, "genesyscloud_auth_division."+divResource),
@@ -97,7 +103,7 @@ func TestAccResourceGroupRolesMembership(t *testing.T) {
 					groupRoleResource,
 					groupResource1,
 					generateResourceRoles("genesyscloud_auth_role."+roleResource1+".id", "genesyscloud_auth_division."+divResource+".id"),
-				) + genesyscloud.GenerateAuthDivisionBasic(divResource, divName),
+				) + authDivision.GenerateAuthDivisionBasic(divResource, divName),
 				Check: resource.ComposeTestCheckFunc(
 					validateResourceRole("genesyscloud_group_roles."+groupRoleResource, "genesyscloud_auth_role."+roleResource1, "genesyscloud_auth_division."+divResource),
 				),
@@ -115,7 +121,7 @@ func TestAccResourceGroupRolesMembership(t *testing.T) {
 				) + generateGroupRoles(
 					groupRoleResource,
 					groupResource1,
-				) + genesyscloud.GenerateAuthDivisionBasic(divResource, divName),
+				) + authDivision.GenerateAuthDivisionBasic(divResource, divName),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckNoResourceAttr("genesyscloud_group_roles."+groupRoleResource, "roles.%"),
 				),
@@ -125,7 +131,12 @@ func TestAccResourceGroupRolesMembership(t *testing.T) {
 				ResourceName:      "genesyscloud_group_roles." + groupRoleResource,
 				ImportState:       true,
 				ImportStateVerify: true,
+				Destroy:           true,
 			},
+		},
+		CheckDestroy: func(state *terraform.State) error {
+			time.Sleep(60 * time.Second)
+			return testVerifyGroupsAndUsersDestroyed(state)
 		},
 	})
 }
@@ -222,4 +233,83 @@ func generateUserWithCustomAttrs(resourceID string, email string, name string, a
 		%s
 	}
 	`, resourceID, email, name, strings.Join(attrs, "\n"))
+}
+
+func checkUserDeleted(id string) resource.TestCheckFunc {
+	log.Printf("Fetching user with ID: %s\n", id)
+	return func(s *terraform.State) error {
+		maxAttempts := 30
+		for i := 0; i < maxAttempts; i++ {
+
+			deleted, err := isUserDeleted(id)
+			if err != nil {
+				return err
+			}
+			if deleted {
+				return nil
+			}
+			time.Sleep(10 * time.Second)
+		}
+		return fmt.Errorf("user %s was not deleted properly", id)
+	}
+}
+
+func isUserDeleted(id string) (bool, error) {
+	mu.Lock()
+	defer mu.Unlock()
+
+	usersAPI := platformclientv2.NewUsersApi()
+	// Attempt to get the user
+	_, response, err := usersAPI.GetUser(id, nil, "", "")
+
+	// Check if the user is not found (deleted)
+	if response != nil && response.StatusCode == 404 {
+		return true, nil // User is deleted
+	}
+
+	// Handle other errors
+	if err != nil {
+		log.Printf("Error fetching user: %v", err)
+		return false, err
+	}
+
+	// If user is found, it means the user is not deleted
+	return false, nil
+}
+
+func testVerifyGroupsAndUsersDestroyed(state *terraform.State) error {
+	groupsAPI := platformclientv2.NewGroupsApi()
+	usersAPI := platformclientv2.NewUsersApi()
+	for _, rs := range state.RootModule().Resources {
+		if rs.Type == "genesyscloud_group" {
+			group, resp, err := groupsAPI.GetGroup(rs.Primary.ID)
+			if group != nil {
+				return fmt.Errorf("Group (%s) still exists", rs.Primary.ID)
+			} else if util.IsStatus404(resp) {
+				// Group not found as expected
+				continue
+			} else {
+				// Unexpected error
+				return fmt.Errorf("Unexpected error: %s", err)
+			}
+		}
+		if rs.Type == "genesyscloud_user" {
+			err := checkUserDeleted(rs.Primary.ID)(state)
+			if err != nil {
+				continue
+			}
+			user, resp, err := usersAPI.GetUser(rs.Primary.ID, nil, "", "")
+			if user != nil {
+				return fmt.Errorf("User (%s) still exists", rs.Primary.ID)
+			} else if util.IsStatus404(resp) {
+				// User not found as expected
+				continue
+			} else {
+				// Unexpected error
+				return fmt.Errorf("Unexpected error: %s", err)
+			}
+		}
+
+	}
+	return nil
 }

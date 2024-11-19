@@ -4,7 +4,7 @@ import (
 	"terraform-provider-genesyscloud/genesyscloud/provider"
 	resourceExporter "terraform-provider-genesyscloud/genesyscloud/resource_exporter"
 	registrar "terraform-provider-genesyscloud/genesyscloud/resource_register"
-	gcloud "terraform-provider-genesyscloud/genesyscloud/validators"
+	"terraform-provider-genesyscloud/genesyscloud/validators"
 	wdcUtils "terraform-provider-genesyscloud/genesyscloud/webdeployments_configuration/utils"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -329,6 +329,12 @@ var (
 				Optional:    true,
 				Computed:    true,
 			},
+			"allow_agent_navigation": {
+				Description: "Whether agent can use navigation feature over customer's screen or not",
+				Type:        schema.TypeBool,
+				Optional:    true,
+				Computed:    true,
+			},
 			"channels": {
 				Description: "List of channels through which cobrowse is available (for now only Webmessaging and Voice)",
 				Type:        schema.TypeList,
@@ -349,6 +355,26 @@ var (
 				Type:        schema.TypeList,
 				Optional:    true,
 				Elem:        &schema.Schema{Type: schema.TypeString},
+			},
+			"pause_criteria": {
+				Description: "Pause criteria that will pause cobrowse if some of them are met in the user's URL",
+				Type:        schema.TypeList,
+				Optional:    true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"url_fragment": {
+							Description: "A string representing a part of the URL that, when matched according to the specified condition, will trigger a pause in the cobrowse session",
+							Type:        schema.TypeString,
+							Required:    true,
+						},
+						"condition": {
+							Description:  "The condition to be applied to the `url_fragment`. Conditions are 'includes', 'does_not_include', 'starts_with', 'ends_with', 'equals'",
+							Type:         schema.TypeString,
+							Required:     true,
+							ValidateFunc: validation.StringInSlice([]string{"Includes", "DoesNotInclude", "StartsWith", "EndsWith", "Equals"}, true),
+						},
+					},
+				},
 			},
 		},
 	}
@@ -512,13 +538,13 @@ var (
 							Description:      "Background color for hero section, in hexadecimal format, eg #ffffff",
 							Type:             schema.TypeString,
 							Required:         true,
-							ValidateDiagFunc: gcloud.ValidateHexColor,
+							ValidateDiagFunc: validators.ValidateHexColor,
 						},
 						"text_color": {
 							Description:      "Text color for hero section, in hexadecimal format, eg #ffffff",
 							Type:             schema.TypeString,
 							Required:         true,
-							ValidateDiagFunc: gcloud.ValidateHexColor,
+							ValidateDiagFunc: validators.ValidateHexColor,
 						},
 						"image_uri": {
 							Description:  "Background image for hero section",
@@ -540,31 +566,31 @@ var (
 							Description:      "Global background color, in hexadecimal format, eg #ffffff",
 							Type:             schema.TypeString,
 							Required:         true,
-							ValidateDiagFunc: gcloud.ValidateHexColor,
+							ValidateDiagFunc: validators.ValidateHexColor,
 						},
 						"primary_color": {
 							Description:      "Global primary color, in hexadecimal format, eg #ffffff",
 							Type:             schema.TypeString,
 							Required:         true,
-							ValidateDiagFunc: gcloud.ValidateHexColor,
+							ValidateDiagFunc: validators.ValidateHexColor,
 						},
 						"primary_color_dark": {
 							Description:      "Global dark primary color, in hexadecimal format, eg #ffffff",
 							Type:             schema.TypeString,
 							Required:         true,
-							ValidateDiagFunc: gcloud.ValidateHexColor,
+							ValidateDiagFunc: validators.ValidateHexColor,
 						},
 						"primary_color_light": {
 							Description:      "Global light primary color, in hexadecimal format, eg #ffffff",
 							Type:             schema.TypeString,
 							Required:         true,
-							ValidateDiagFunc: gcloud.ValidateHexColor,
+							ValidateDiagFunc: validators.ValidateHexColor,
 						},
 						"text_color": {
 							Description:      "Global text color, in hexadecimal format, eg #ffffff",
 							Type:             schema.TypeString,
 							Required:         true,
-							ValidateDiagFunc: gcloud.ValidateHexColor,
+							ValidateDiagFunc: validators.ValidateHexColor,
 						},
 						"font_family": {
 							Description: "Global font family",

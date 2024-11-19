@@ -2,14 +2,15 @@ package organization_authentication_settings
 
 import (
 	"context"
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/uuid"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/mypurecloud/platform-client-sdk-go/v129/platformclientv2"
-	"github.com/stretchr/testify/assert"
 	"net/http"
 	"terraform-provider-genesyscloud/genesyscloud/provider"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/uuid"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/mypurecloud/platform-client-sdk-go/v143/platformclientv2"
+	"github.com/stretchr/testify/assert"
 )
 
 // Unit Test
@@ -49,7 +50,7 @@ func TestUnitResourceOrganizationAuthenticationSettingsRead(t *testing.T) {
 	}
 	testOrgAuthSettings := generateAuthSettingsData(domainAllowList, ipAllowList)
 	orgAuthProxy := &orgAuthSettingsProxy{}
-	orgAuthProxy.getOrgAuthSettingsByIdAttr = func(ctx context.Context, o *orgAuthSettingsProxy, id string) (*platformclientv2.Orgauthsettings, *platformclientv2.APIResponse, error) {
+	orgAuthProxy.getOrgAuthSettingsAttr = func(ctx context.Context, o *orgAuthSettingsProxy) (*platformclientv2.Orgauthsettings, *platformclientv2.APIResponse, error) {
 		orgAuthSettings := &testOrgAuthSettings
 
 		apiResponse := &platformclientv2.APIResponse{StatusCode: http.StatusOK}
@@ -91,7 +92,7 @@ func TestUnitResourceOrganizationAuthenticationSettingsUpdate(t *testing.T) {
 	testOrgAuthSettings := generateAuthSettingsData(domainAllowList, ipAllowList)
 
 	orgAuthProxy := &orgAuthSettingsProxy{}
-	orgAuthProxy.getOrgAuthSettingsByIdAttr = func(ctx context.Context, p *orgAuthSettingsProxy, id string) (*platformclientv2.Orgauthsettings, *platformclientv2.APIResponse, error) {
+	orgAuthProxy.getOrgAuthSettingsAttr = func(ctx context.Context, p *orgAuthSettingsProxy) (*platformclientv2.Orgauthsettings, *platformclientv2.APIResponse, error) {
 		orgAuthSettings := &testOrgAuthSettings
 
 		apiResponse := &platformclientv2.APIResponse{StatusCode: http.StatusOK}

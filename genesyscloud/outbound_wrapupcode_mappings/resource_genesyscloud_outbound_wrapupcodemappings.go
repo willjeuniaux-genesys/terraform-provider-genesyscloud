@@ -19,12 +19,31 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 
-	"github.com/mypurecloud/platform-client-sdk-go/v129/platformclientv2"
+	"github.com/mypurecloud/platform-client-sdk-go/v143/platformclientv2"
 )
 
 // getOutboundWrapupCodeMappings is used by the exporter to return all wrapupcode mappings
 func getOutboundWrapupCodeMappings(ctx context.Context, clientConfig *platformclientv2.Configuration) (resourceExporter.ResourceIDMetaMap, diag.Diagnostics) {
+	proxy := getOutboundWrapupCodeMappingsProxy(clientConfig)
 	resources := make(resourceExporter.ResourceIDMetaMap)
+
+	_, resp, err := proxy.getAllOutboundWrapupCodeMappings(ctx)
+	if err != nil {
+		if util.IsStatus404(resp) {
+			// Don't export if config doesn't exist
+			return resources, nil
+		}
+		return nil, util.BuildAPIDiagnosticError(resourceName, fmt.Sprintf("Failed to get %s due to error: %s", resourceName, err), resp)
+	}
+
+	_, resp, err = proxy.getAllWrapupCodes(ctx)
+	if err != nil {
+		if util.IsStatus404(resp) {
+			// Don't export if config doesn't exist
+			return resources, nil
+		}
+		return nil, util.BuildAPIDiagnosticError(resourceName, fmt.Sprintf("Failed to get %s due to error: %s", resourceName, err), resp)
+	}
 	resources["0"] = &resourceExporter.ResourceMeta{Name: "wrapupcodemappings"}
 	return resources, nil
 }

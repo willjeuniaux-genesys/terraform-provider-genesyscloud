@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
@@ -20,6 +21,45 @@ func GetTestDataPath(elem ...string) string {
 	basePath := filepath.Join("..", "test", "data")
 	subPath := filepath.Join(elem...)
 	return filepath.Join(basePath, subPath)
+}
+
+func NormalizePath(path string) (string, error) {
+	fullyQualifiedPath, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+
+	if runtime.GOOS == "windows" {
+		// Convert single backslashes to dobule backslashes if necessary
+		fullyQualifiedPath = strings.ReplaceAll(fullyQualifiedPath, "\\", "\\\\")
+	}
+
+	return fullyQualifiedPath, nil
+}
+
+func NormalizeFileName(filename string) (string, error) {
+	fullyQualifiedFineName, err := filepath.Abs(filename)
+	if err != nil {
+		return "", err
+	}
+
+	if runtime.GOOS == "windows" {
+		// Convert single backslashes to single forwardslashes if necessary
+		fullyQualifiedFineName = strings.ReplaceAll(fullyQualifiedFineName, "\\", "/")
+	}
+
+	return fullyQualifiedFineName, nil
+}
+
+func NormalizeSlash(fileNameWithSlash string) string {
+	fullyQualifiedFileName := fileNameWithSlash
+
+	if runtime.GOOS == "windows" {
+		// Convert single backslashes to dobule backslashes if necessary
+		fullyQualifiedFileName = strings.ReplaceAll(fullyQualifiedFileName, "\\", "\\\\")
+	}
+
+	return fullyQualifiedFileName
 }
 
 func GenerateDataSourceTestSteps(resourceName string, testCaseName string, checkFuncs []resource.TestCheckFunc) []resource.TestStep {

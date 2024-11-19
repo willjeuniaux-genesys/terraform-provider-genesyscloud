@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"terraform-provider-genesyscloud/genesyscloud/provider"
+	routingSkill "terraform-provider-genesyscloud/genesyscloud/routing_skill"
 	"terraform-provider-genesyscloud/genesyscloud/util"
 	"terraform-provider-genesyscloud/genesyscloud/util/constants"
 	"time"
@@ -13,14 +14,12 @@ import (
 
 	"terraform-provider-genesyscloud/genesyscloud/consistency_checker"
 
-	gcloud "terraform-provider-genesyscloud/genesyscloud"
-
 	resourceExporter "terraform-provider-genesyscloud/genesyscloud/resource_exporter"
 	"terraform-provider-genesyscloud/genesyscloud/util/resourcedata"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/mypurecloud/platform-client-sdk-go/v129/platformclientv2"
+	"github.com/mypurecloud/platform-client-sdk-go/v143/platformclientv2"
 )
 
 /*
@@ -38,8 +37,7 @@ func getAllAuthOutboundRuleset(ctx context.Context, clientConfig *platformclient
 	}
 
 	// DEVTOOLING-319: filters rule sets by removing the ones that reference skills that no longer exist in GC
-	skillExporter := gcloud.RoutingSkillExporter()
-	skillMap, skillErr := skillExporter.GetResourcesFunc(ctx)
+	skillMap, skillErr := routingSkill.GetAllRoutingSkills(ctx, clientConfig)
 	if skillErr != nil {
 		return nil, util.BuildDiagnosticError(resourceName, fmt.Sprintf("Failed to get skill resources"), fmt.Errorf("%v", skillErr))
 	}
@@ -53,6 +51,29 @@ func getAllAuthOutboundRuleset(ctx context.Context, clientConfig *platformclient
 		resources[*ruleset.Id] = &resourceExporter.ResourceMeta{Name: *ruleset.Name}
 	}
 	return resources, nil
+}
+
+// filterOutboundRulesets filters rule sets by removing the ones that reference skills that no longer exist in GC
+func filterOutboundRulesets(ruleSets []platformclientv2.Ruleset, skillMap resourceExporter.ResourceIDMetaMap) ([]platformclientv2.Ruleset, diag.Diagnostics) {
+	var filteredRuleSets []platformclientv2.Ruleset
+	log.Printf("Filtering outbound rule sets")
+
+	for _, ruleSet := range ruleSets {
+		var foundDeleted bool
+		for _, rule := range *ruleSet.Rules {
+			if doesRuleActionsRefDeletedSkill(rule, skillMap) || doesRuleConditionsRefDeletedSkill(rule, skillMap) {
+				foundDeleted = true
+				break
+			}
+		}
+		if foundDeleted {
+			log.Printf("Removing ruleset id '%s'", *ruleSet.Id)
+		} else {
+			// No references to a deleted skill in the ruleset, keep it
+			filteredRuleSets = append(filteredRuleSets, ruleSet)
+		}
+	}
+	return filteredRuleSets, nil
 }
 
 // createOutboundRuleset is used by the outbound_ruleset resource to create Genesys cloud outbound_ruleset
@@ -141,27 +162,4 @@ func deleteOutboundRuleset(ctx context.Context, d *schema.ResourceData, meta int
 		}
 		return retry.RetryableError(util.BuildWithRetriesApiDiagnosticError(resourceName, fmt.Sprintf("Outbound Ruleset %s still exists", d.Id()), resp))
 	})
-}
-
-// filterOutboundRulesets filters rule sets by removing the ones that reference skills that no longer exist in GC
-func filterOutboundRulesets(ruleSets []platformclientv2.Ruleset, skillMap resourceExporter.ResourceIDMetaMap) ([]platformclientv2.Ruleset, diag.Diagnostics) {
-	var filteredRuleSets []platformclientv2.Ruleset
-	log.Printf("Filtering outbound rule sets")
-
-	for _, ruleSet := range ruleSets {
-		var foundDeleted bool
-		for _, rule := range *ruleSet.Rules {
-			if doesRuleActionsRefDeletedSkill(rule, skillMap) || doesRuleConditionsRefDeletedSkill(rule, skillMap) {
-				foundDeleted = true
-				break
-			}
-		}
-		if foundDeleted {
-			log.Printf("Removing ruleset id '%s'", *ruleSet.Id)
-		} else {
-			// No references to a deleted skill in the ruleset, keep it
-			filteredRuleSets = append(filteredRuleSets, ruleSet)
-		}
-	}
-	return filteredRuleSets, nil
 }

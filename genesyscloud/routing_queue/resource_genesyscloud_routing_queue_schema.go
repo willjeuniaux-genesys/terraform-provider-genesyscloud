@@ -39,17 +39,17 @@ var (
 			"enable_agent_owned_callbacks": {
 				Description: "Enable Agent Owned Callbacks",
 				Type:        schema.TypeBool,
-				Required:    true,
+				Optional:    true,
 			},
 			"max_owned_callback_hours": {
 				Description: "Auto End Delay Seconds Must be >= 7",
 				Type:        schema.TypeInt,
-				Required:    true,
+				Optional:    true,
 			},
 			"max_owned_callback_delay_hours": {
 				Description: "Max Owned Call Back Delay Hours >= 7",
 				Type:        schema.TypeInt,
-				Required:    true,
+				Optional:    true,
 			},
 		},
 	}
@@ -59,7 +59,7 @@ var (
 			"alerting_timeout_sec": {
 				Description:  "Alerting timeout in seconds. Must be >= 7",
 				Type:         schema.TypeInt,
-				Required:     true,
+				Optional:     true,
 				ValidateFunc: validation.IntAtLeast(7),
 			},
 			"auto_end_delay_seconds": {
@@ -87,13 +87,13 @@ var (
 			"service_level_percentage": {
 				Description:  "The desired Service Level. A float value between 0 and 1.",
 				Type:         schema.TypeFloat,
-				Required:     true,
+				Optional:     true,
 				ValidateFunc: validation.FloatBetween(0, 1),
 			},
 			"service_level_duration_ms": {
 				Description:  "Service Level target in milliseconds. Must be >= 1000",
 				Type:         schema.TypeInt,
-				Required:     true,
+				Optional:     true,
 				ValidateFunc: validation.IntAtLeast(1000),
 			},
 		},
@@ -162,10 +162,10 @@ func ResourceRoutingQueue() *schema.Resource {
 	return &schema.Resource{
 		Description: "Genesys Cloud Routing Queue",
 
-		CreateContext: provider.CreateWithPooledClient(createQueue),
-		ReadContext:   provider.ReadWithPooledClient(readQueue),
-		UpdateContext: provider.UpdateWithPooledClient(updateQueue),
-		DeleteContext: provider.DeleteWithPooledClient(deleteQueue),
+		CreateContext: provider.CreateWithPooledClient(createRoutingQueue),
+		ReadContext:   provider.ReadWithPooledClient(readRoutingQueue),
+		UpdateContext: provider.UpdateWithPooledClient(updateRoutingQueue),
+		DeleteContext: provider.DeleteWithPooledClient(deleteRoutingQueue),
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
 		},
@@ -292,11 +292,10 @@ func ResourceRoutingQueue() *schema.Resource {
 				},
 			},
 			"conditional_group_routing_rules": {
-				Description: "The Conditional Group Routing settings for the queue.",
+				Description: "The Conditional Group Routing settings for the queue. **Note**: conditional_group_routing_rules is deprecated in genesyscloud_routing_queue. CGR is now a standalone resource, please set ENABLE_STANDALONE_CGR in your environment variables to enable and use genesyscloud_routing_queue_conditional_group_routing",
 				Type:        schema.TypeList,
 				Optional:    true,
 				MaxItems:    5,
-				Deprecated:  "conditional_group_routing_rules is deprecated in genesyscloud_routing_queue. CGR is now a standalone resource, please set ENABLE_STANDALONE_CGR in your environment variables to enable and use genesyscloud_routing_queue_conditional_group_routing",
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"queue_id": {
@@ -307,7 +306,7 @@ func ResourceRoutingQueue() *schema.Resource {
 						"operator": {
 							Description:  "The operator that compares the actual value against the condition value. Valid values: GreaterThan, GreaterThanOrEqualTo, LessThan, LessThanOrEqualTo.",
 							Type:         schema.TypeString,
-							Required:     true,
+							Optional:     true,
 							ValidateFunc: validation.StringInSlice([]string{"GreaterThan", "LessThan", "GreaterThanOrEqualTo", "LessThanOrEqualTo"}, false),
 						},
 						"metric": {
@@ -319,7 +318,7 @@ func ResourceRoutingQueue() *schema.Resource {
 						"condition_value": {
 							Description:  "The limit value, beyond which a rule evaluates as true.",
 							Type:         schema.TypeFloat,
-							Required:     true,
+							Optional:     true,
 							ValidateFunc: validation.FloatBetween(0, 259200),
 						},
 						"wait_seconds": {
@@ -380,6 +379,11 @@ func ResourceRoutingQueue() *schema.Resource {
 				Type:        schema.TypeString,
 				Optional:    true,
 			},
+			"on_hold_prompt_id": {
+				Description: "The audio to be played when calls on this queue are on hold. If not configured, the default on-hold music will play.",
+				Type:        schema.TypeString,
+				Optional:    true,
+			},
 			"auto_answer_only": {
 				Description: "Specifies whether the configured whisper should play for all ACD calls, or only for those which are auto-answered.",
 				Type:        schema.TypeBool,
@@ -397,6 +401,21 @@ func ResourceRoutingQueue() *schema.Resource {
 				Type:        schema.TypeBool,
 				Optional:    true,
 				Default:     true,
+			},
+			"enable_audio_monitoring": {
+				Description: "Indicates whether audio monitoring is enabled for this queue.",
+				Type:        schema.TypeBool,
+				Optional:    true,
+			},
+			"peer_id": {
+				Description: "The ID of an associated external queue",
+				Optional:    true,
+				Type:        schema.TypeString,
+			},
+			"source_queue_id": {
+				Description: "The id of an existing queue to copy the settings (does not include GPR settings) from when creating a new queue.",
+				Optional:    true,
+				Type:        schema.TypeString,
 			},
 			"enable_manual_assignment": {
 				Description: "Indicates whether manual assignment is enabled for this queue.",
@@ -433,12 +452,21 @@ func ResourceRoutingQueue() *schema.Resource {
 				Type:        schema.TypeString,
 				Optional:    true,
 			},
+			"outbound_messaging_open_messaging_recipient_id": {
+				Description: "The unique ID of the outbound messaging open messaging recipient for the queue.",
+				Type:        schema.TypeString,
+				Optional:    true,
+			},
+			"outbound_messaging_whatsapp_recipient_id": {
+				Description: "The unique ID of the outbound messaging whatsapp recipient for the queue.",
+				Type:        schema.TypeString,
+				Optional:    true,
+			},
 			"outbound_email_address": {
-				Description: "The outbound email address settings for this queue.",
+				Description: "The outbound email address settings for this queue. **Note**: outbound_email_address is deprecated in genesyscloud_routing_queue. OEA is now a standalone resource, please set ENABLE_STANDALONE_EMAIL_ADDRESS in your environment variables to enable and use genesyscloud_routing_queue_outbound_email_address",
 				Type:        schema.TypeList,
 				MaxItems:    1,
 				Optional:    true,
-				Deprecated:  "outbound_email_address is deprecated in genesyscloud_routing_queue. OEA is now a standalone resource, please set ENABLE_STANDALONE_EMAIL_ADDRESS in your environment variables to enable and use genesyscloud_routing_queue_outbound_email_address",
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"domain_id": {
@@ -507,6 +535,7 @@ func RoutingQueueExporter() *resourceExporter.ResourceExporter {
 			"email_in_queue_flow_id":                   {RefType: "genesyscloud_flow"},
 			"message_in_queue_flow_id":                 {RefType: "genesyscloud_flow"},
 			"whisper_prompt_id":                        {RefType: "genesyscloud_architect_user_prompt"},
+			"on_hold_prompt_id":                        {RefType: "genesyscloud_architect_user_prompt"},
 			"outbound_messaging_sms_address_id":        {},                               // Ref type not yet defined
 			"default_script_ids.*":                     {RefType: "genesyscloud_script"}, // Ref type not yet defined
 			"outbound_email_address.route_id":          {RefType: "genesyscloud_routing_email_route"},
@@ -533,8 +562,8 @@ func RoutingQueueExporter() *resourceExporter.ResourceExporter {
 
 func DataSourceRoutingQueue() *schema.Resource {
 	return &schema.Resource{
-		Description: "Data source for Genesys Cloud Routing Queues. Select a queue by name.",
-		ReadContext: provider.ReadWithPooledClient(dataSourceRoutingQueueRead),
+		Description:        "Data source for Genesys Cloud Routing Queues. Select a queue by name.",
+		ReadWithoutTimeout: provider.ReadWithPooledClient(dataSourceRoutingQueueRead),
 		Schema: map[string]*schema.Schema{
 			"name": {
 				Description: "Queue name.",

@@ -2,8 +2,6 @@ package main
 
 import (
 	"flag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/plugin"
 	"sync"
 	gcloud "terraform-provider-genesyscloud/genesyscloud"
 	dt "terraform-provider-genesyscloud/genesyscloud/architect_datatable"
@@ -14,9 +12,16 @@ import (
 	grammarLanguage "terraform-provider-genesyscloud/genesyscloud/architect_grammar_language"
 	archIvr "terraform-provider-genesyscloud/genesyscloud/architect_ivr"
 	architectSchedulegroups "terraform-provider-genesyscloud/genesyscloud/architect_schedulegroups"
+	architectSchedules "terraform-provider-genesyscloud/genesyscloud/architect_schedules"
 	userPrompt "terraform-provider-genesyscloud/genesyscloud/architect_user_prompt"
+	authDivision "terraform-provider-genesyscloud/genesyscloud/auth_division"
 	authRole "terraform-provider-genesyscloud/genesyscloud/auth_role"
 	authorizatioProduct "terraform-provider-genesyscloud/genesyscloud/authorization_product"
+	integrationInstagram "terraform-provider-genesyscloud/genesyscloud/conversations_messaging_integrations_instagram"
+	cMessageSettings "terraform-provider-genesyscloud/genesyscloud/conversations_messaging_settings"
+	cMessageSettingsDefault "terraform-provider-genesyscloud/genesyscloud/conversations_messaging_settings_default"
+	supportedContent "terraform-provider-genesyscloud/genesyscloud/conversations_messaging_supportedcontent"
+	cmSupportedContentDefault "terraform-provider-genesyscloud/genesyscloud/conversations_messaging_supportedcontent_default"
 	employeeperformanceExternalmetricsDefinition "terraform-provider-genesyscloud/genesyscloud/employeeperformance_externalmetrics_definitions"
 	externalContacts "terraform-provider-genesyscloud/genesyscloud/external_contacts"
 	flowLogLevel "terraform-provider-genesyscloud/genesyscloud/flow_loglevel"
@@ -24,12 +29,21 @@ import (
 	flowOutcome "terraform-provider-genesyscloud/genesyscloud/flow_outcome"
 	"terraform-provider-genesyscloud/genesyscloud/group"
 	groupRoles "terraform-provider-genesyscloud/genesyscloud/group_roles"
+	idpAdfs "terraform-provider-genesyscloud/genesyscloud/idp_adfs"
+	idpGeneric "terraform-provider-genesyscloud/genesyscloud/idp_generic"
+	idpGsuite "terraform-provider-genesyscloud/genesyscloud/idp_gsuite"
+	idpOkta "terraform-provider-genesyscloud/genesyscloud/idp_okta"
+	idpOneLogin "terraform-provider-genesyscloud/genesyscloud/idp_onelogin"
+	idpPing "terraform-provider-genesyscloud/genesyscloud/idp_ping"
 	idpSalesforce "terraform-provider-genesyscloud/genesyscloud/idp_salesforce"
 	"terraform-provider-genesyscloud/genesyscloud/integration"
 	integrationAction "terraform-provider-genesyscloud/genesyscloud/integration_action"
 	integrationCred "terraform-provider-genesyscloud/genesyscloud/integration_credential"
 	integrationCustomAuth "terraform-provider-genesyscloud/genesyscloud/integration_custom_auth_action"
+	integrationFacebook "terraform-provider-genesyscloud/genesyscloud/integration_facebook"
 	journeyOutcomePredictor "terraform-provider-genesyscloud/genesyscloud/journey_outcome_predictor"
+	journeyViews "terraform-provider-genesyscloud/genesyscloud/journey_views"
+	"terraform-provider-genesyscloud/genesyscloud/knowledge"
 	oauth "terraform-provider-genesyscloud/genesyscloud/oauth_client"
 	oAuthSettings "terraform-provider-genesyscloud/genesyscloud/organization_authentication_settings"
 	oAuthPairing "terraform-provider-genesyscloud/genesyscloud/orgauthorization_pairing"
@@ -40,7 +54,10 @@ import (
 	obCampaign "terraform-provider-genesyscloud/genesyscloud/outbound_campaign"
 	obCampaignRule "terraform-provider-genesyscloud/genesyscloud/outbound_campaignrule"
 	obContactList "terraform-provider-genesyscloud/genesyscloud/outbound_contact_list"
+	outboundContactListContact "terraform-provider-genesyscloud/genesyscloud/outbound_contact_list_contact"
+	obContactListTemplate "terraform-provider-genesyscloud/genesyscloud/outbound_contact_list_template"
 	obContactListFilter "terraform-provider-genesyscloud/genesyscloud/outbound_contactlistfilter"
+	obDigitalRuleSet "terraform-provider-genesyscloud/genesyscloud/outbound_digitalruleset"
 	obDncList "terraform-provider-genesyscloud/genesyscloud/outbound_dnclist"
 	obfst "terraform-provider-genesyscloud/genesyscloud/outbound_filespecificationtemplate"
 	obs "terraform-provider-genesyscloud/genesyscloud/outbound_ruleset"
@@ -55,20 +72,31 @@ import (
 	respmanagementLibrary "terraform-provider-genesyscloud/genesyscloud/responsemanagement_library"
 	responsemanagementResponse "terraform-provider-genesyscloud/genesyscloud/responsemanagement_response"
 	responsemanagementResponseasset "terraform-provider-genesyscloud/genesyscloud/responsemanagement_responseasset"
+	routingEmailDomain "terraform-provider-genesyscloud/genesyscloud/routing_email_domain"
 	routingEmailRoute "terraform-provider-genesyscloud/genesyscloud/routing_email_route"
+	routingLanguage "terraform-provider-genesyscloud/genesyscloud/routing_language"
 	routingQueue "terraform-provider-genesyscloud/genesyscloud/routing_queue"
+	routingWrapupcode "terraform-provider-genesyscloud/genesyscloud/routing_wrapupcode"
 
+	knowledgeDocument "terraform-provider-genesyscloud/genesyscloud/knowledge_document"
+	location "terraform-provider-genesyscloud/genesyscloud/location"
 	routingQueueConditionalGroupRouting "terraform-provider-genesyscloud/genesyscloud/routing_queue_conditional_group_routing"
 	routingQueueOutboundEmailAddress "terraform-provider-genesyscloud/genesyscloud/routing_queue_outbound_email_address"
+	routingSettings "terraform-provider-genesyscloud/genesyscloud/routing_settings"
+	routingSkill "terraform-provider-genesyscloud/genesyscloud/routing_skill"
+	routingSkillGroup "terraform-provider-genesyscloud/genesyscloud/routing_skill_group"
 	smsAddresses "terraform-provider-genesyscloud/genesyscloud/routing_sms_addresses"
+	routingUtilization "terraform-provider-genesyscloud/genesyscloud/routing_utilization"
+	routingUtilizationLabel "terraform-provider-genesyscloud/genesyscloud/routing_utilization_label"
 	"terraform-provider-genesyscloud/genesyscloud/scripts"
 	"terraform-provider-genesyscloud/genesyscloud/station"
 	workbin "terraform-provider-genesyscloud/genesyscloud/task_management_workbin"
 	workitem "terraform-provider-genesyscloud/genesyscloud/task_management_workitem"
 	workitemSchema "terraform-provider-genesyscloud/genesyscloud/task_management_workitem_schema"
 	worktype "terraform-provider-genesyscloud/genesyscloud/task_management_worktype"
+	worktypeStatus "terraform-provider-genesyscloud/genesyscloud/task_management_worktype_status"
 	"terraform-provider-genesyscloud/genesyscloud/team"
-	"terraform-provider-genesyscloud/genesyscloud/telephony"
+	"terraform-provider-genesyscloud/genesyscloud/telephony_provider_edges_trunkbasesettings"
 	did "terraform-provider-genesyscloud/genesyscloud/telephony_providers_edges_did"
 	didPool "terraform-provider-genesyscloud/genesyscloud/telephony_providers_edges_did_pool"
 	edgeGroup "terraform-provider-genesyscloud/genesyscloud/telephony_providers_edges_edge_group"
@@ -77,11 +105,16 @@ import (
 	edgePhone "terraform-provider-genesyscloud/genesyscloud/telephony_providers_edges_phone"
 	phoneBaseSettings "terraform-provider-genesyscloud/genesyscloud/telephony_providers_edges_phonebasesettings"
 	edgeSite "terraform-provider-genesyscloud/genesyscloud/telephony_providers_edges_site"
+	siteOutboundRoutes "terraform-provider-genesyscloud/genesyscloud/telephony_providers_edges_site_outbound_route"
 	edgesTrunk "terraform-provider-genesyscloud/genesyscloud/telephony_providers_edges_trunk"
 	tfexp "terraform-provider-genesyscloud/genesyscloud/tfexporter"
+	"terraform-provider-genesyscloud/genesyscloud/user"
 	userRoles "terraform-provider-genesyscloud/genesyscloud/user_roles"
 	webDeployConfig "terraform-provider-genesyscloud/genesyscloud/webdeployments_configuration"
 	webDeployDeploy "terraform-provider-genesyscloud/genesyscloud/webdeployments_deployment"
+
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/plugin"
 )
 
 // Run "go generate" to format example terraform files and generate the docs for the registry/website
@@ -125,7 +158,7 @@ func main() {
 
 	if debugMode {
 		opts.Debug = true
-		opts.ProviderAddr = "registry.terraform.io/mypurecloud/genesyscloud"
+		opts.ProviderAddr = "genesys.com/mypurecloud/genesyscloud"
 	}
 	plugin.Serve(opts)
 }
@@ -139,17 +172,20 @@ type RegisterInstance struct {
 func registerResources() {
 	regInstance := &RegisterInstance{}
 	authRole.SetRegistrar(regInstance)                                     //Registering auth_role
+	authDivision.SetRegistrar(regInstance)                                 //Registering auth_division
 	oauth.SetRegistrar(regInstance)                                        //Registering oauth_client
 	dt.SetRegistrar(regInstance)                                           //Registering architect data table
 	dtr.SetRegistrar(regInstance)                                          //Registering architect data table row
 	emergencyGroup.SetRegistrar(regInstance)                               //Registering architect emergency group
 	architectSchedulegroups.SetRegistrar(regInstance)                      //Registering architect schedule groups
+	architectSchedules.SetRegistrar(regInstance)                           //Registering architect schedules
 	employeeperformanceExternalmetricsDefinition.SetRegistrar(regInstance) //Registering employee performance external metrics definitions
 	grammar.SetRegistrar(regInstance)                                      //Registering architect grammar
 	grammarLanguage.SetRegistrar(regInstance)                              //Registering architect grammar language
 	groupRoles.SetRegistrar(regInstance)                                   //Registering group roles
-	edgePhone.SetRegistrar(regInstance)                                    //Registering telephony providers edges phone
+	edgePhone.SetRegistrar(regInstance)                                    //Registering telephony  providers edges phone
 	edgeSite.SetRegistrar(regInstance)                                     //Registering telephony providers edges site
+	siteOutboundRoutes.SetRegistrar(regInstance)                           //Registering telephony providers edges site outbound routes
 	flow.SetRegistrar(regInstance)                                         //Registering architect flow
 	flowLogLevel.SetRegistrar(regInstance)                                 //Registering flow log Level
 	flowMilestone.SetRegistrar(regInstance)                                //Registering flow milestone
@@ -166,6 +202,7 @@ func registerResources() {
 	obCampaign.SetRegistrar(regInstance)                                   //Registering outbound campaign
 	obContactList.SetRegistrar(regInstance)                                //Registering outbound contact list
 	obContactListFilter.SetRegistrar(regInstance)                          //Registering outbound contact list filter
+	obContactListTemplate.SetRegistrar(regInstance)                        //Registering outbound contact list template
 	obSequence.SetRegistrar(regInstance)                                   //Registering outbound sequence
 	obCampaignRule.SetRegistrar(regInstance)                               //Registering outbound campaignrule
 	obSettings.SetRegistrar(regInstance)                                   //Registering outbound settings
@@ -173,14 +210,23 @@ func registerResources() {
 	obCampaign.SetRegistrar(regInstance)                                   //Registering outbound campaign
 	obfst.SetRegistrar(regInstance)                                        //Registering outbound file specification template
 	obDncList.SetRegistrar(regInstance)                                    //Registering outbound dnclist
+	obDigitalRuleSet.SetRegistrar(regInstance)                             //Registering outbound digital ruleset
 	oAuthPairing.SetRegistrar(regInstance)                                 //Registering orgauthorization pairing
 	scripts.SetRegistrar(regInstance)                                      //Registering Scripts
 	smsAddresses.SetRegistrar(regInstance)                                 //Registering routing sms addresses
+	idpAdfs.SetRegistrar(regInstance)                                      //Registering idp adfs
 	idpSalesforce.SetRegistrar(regInstance)                                //Registering idp salesforce
+	idpOkta.SetRegistrar(regInstance)                                      //Registering idp okta
+	idpOneLogin.SetRegistrar(regInstance)                                  //Registering idp onelogin
+	idpGeneric.SetRegistrar(regInstance)                                   //Registering idp generic
+	idpPing.SetRegistrar(regInstance)                                      //Registering idp ping
+	idpGsuite.SetRegistrar(regInstance)                                    //Registering idp gsuite
 	integration.SetRegistrar(regInstance)                                  //Registering integrations
 	integrationCustomAuth.SetRegistrar(regInstance)                        //Registering integrations custom auth actions
 	integrationAction.SetRegistrar(regInstance)                            //Registering integrations actions
 	integrationCred.SetRegistrar(regInstance)                              //Registering integrations credentials
+	integrationFacebook.SetRegistrar(regInstance)                          //Registering integrations Facebook
+	integrationInstagram.SetRegistrar(regInstance)                         //Registering integrations Instagram
 	recMediaRetPolicy.SetRegistrar(regInstance)                            //Registering recording media retention policies
 	responsemanagementResponse.SetRegistrar(regInstance)                   //Registering responsemanagement responses
 	responsemanagementResponseasset.SetRegistrar(regInstance)              //Registering responsemanagement response asset
@@ -192,10 +238,11 @@ func registerResources() {
 	workbin.SetRegistrar(regInstance)                                      //Registering task management workbin
 	workitemSchema.SetRegistrar(regInstance)                               //Registering task management workitem schema
 	worktype.SetRegistrar(regInstance)                                     //Registering task management worktype
+	worktypeStatus.SetRegistrar(regInstance)                               //Registering task management worktype status
 	workitem.SetRegistrar(regInstance)                                     //Registering task management workitem
 	externalContacts.SetRegistrar(regInstance)                             //Registering external contacts
 	team.SetRegistrar(regInstance)                                         //Registering team
-	telephony.SetRegistrar(regInstance)                                    //Registering telephony package
+	telephony_provider_edges_trunkbasesettings.SetRegistrar(regInstance)   //Registering telephony_provider_edges_trunkbasesettings package
 	edgeGroup.SetRegistrar(regInstance)                                    //Registering edges edge group
 	webDeployConfig.SetRegistrar(regInstance)                              //Registering webdeployments_config
 	webDeployDeploy.SetRegistrar(regInstance)                              //Registering webdeployments_deploy
@@ -206,13 +253,30 @@ func registerResources() {
 	edgesTrunk.SetRegistrar(regInstance)                                   //Registering Edges Trunk Settings
 	resourceExporter.SetRegisterExporter(resourceExporters)                //Registering register exporters
 	userRoles.SetRegistrar(regInstance)                                    //Registering user roles
+	user.SetRegistrar(regInstance)                                         //Registering user
 	journeyOutcomePredictor.SetRegistrar(regInstance)                      //Registering journey outcome predictor
 	group.SetRegistrar(regInstance)                                        //Registering group
 	userPrompt.SetRegistrar(regInstance)                                   //Registering user prompt
 	routingQueue.SetRegistrar(regInstance)                                 //Registering routing queue
 	routingQueueConditionalGroupRouting.SetRegistrar(regInstance)          //Registering routing queue conditional group routing
 	routingQueueOutboundEmailAddress.SetRegistrar(regInstance)             //Registering routing queue outbound email address
-
+	outboundContactListContact.SetRegistrar(regInstance)                   //Registering outbound contact list contact
+	routingSettings.SetRegistrar(regInstance)                              //Registering routing Settings
+	routingUtilization.SetRegistrar(regInstance)                           //Registering routing utilization
+	routingUtilizationLabel.SetRegistrar(regInstance)                      //Registering routing utilization label
+	journeyViews.SetRegistrar(regInstance)                                 //Registering journey views
+	routingWrapupcode.SetRegistrar(regInstance)                            //Registering routing wrapupcode
+	routingLanguage.SetRegistrar(regInstance)                              //Registering Routing Language
+	routingEmailDomain.SetRegistrar(regInstance)                           //Registering Routing Email Domain
+	supportedContent.SetRegistrar(regInstance)                             //Registering Supported Content
+	routingSkill.SetRegistrar(regInstance)                                 //Registering Routing Skill
+	cMessageSettings.SetRegistrar(regInstance)                             //Registering conversations messaging settings
+	routingSkillGroup.SetRegistrar(regInstance)                            //Registering routing skill group
+	cMessageSettingsDefault.SetRegistrar(regInstance)                      //Registering conversations messaging settings default
+	cmSupportedContentDefault.SetRegistrar(regInstance)                    //Registering conversations supported content default
+	location.SetRegistrar(regInstance)                                     //Registering location
+	knowledgeDocument.SetRegistrar(regInstance)                            //Registering knowledge document
+	knowledge.SetRegistrar(regInstance)                                    //Registering knowledge
 	// setting resources for Use cases  like TF export where provider is used in resource classes.
 	tfexp.SetRegistrar(regInstance) //Registering tf exporter
 	registrar.SetResources(providerResources, providerDataSources)

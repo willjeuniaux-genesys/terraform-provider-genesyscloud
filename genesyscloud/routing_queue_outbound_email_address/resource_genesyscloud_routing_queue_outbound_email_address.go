@@ -3,10 +3,6 @@ package routing_queue_outbound_email_address
 import (
 	"context"
 	"fmt"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/mypurecloud/platform-client-sdk-go/v129/platformclientv2"
 	"log"
 	"strings"
 	consistencyChecker "terraform-provider-genesyscloud/genesyscloud/consistency_checker"
@@ -16,6 +12,11 @@ import (
 	"terraform-provider-genesyscloud/genesyscloud/util/constants"
 	featureToggles "terraform-provider-genesyscloud/genesyscloud/util/feature_toggles"
 	"terraform-provider-genesyscloud/genesyscloud/util/resourcedata"
+
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/mypurecloud/platform-client-sdk-go/v143/platformclientv2"
 )
 
 /*
@@ -31,13 +32,13 @@ func getAllAuthRoutingQueueOutboundEmailAddress(ctx context.Context, clientConfi
 	resources := make(resourceExporter.ResourceIDMetaMap)
 	proxy := getRoutingQueueOutboundEmailAddressProxy(clientConfig)
 
-	queues, resp, err := proxy.routingQueueProxy.GetAllRoutingQueues(ctx)
+	queues, resp, err := proxy.routingQueueProxy.GetAllRoutingQueues(ctx, "")
 	if err != nil {
 		return nil, util.BuildAPIDiagnosticError(resourceName, "failed to get outbound email addresses for routing queues", resp)
 	}
 
 	for _, queue := range *queues {
-		if queue.OutboundEmailAddress != nil && *queue.OutboundEmailAddress != nil {
+		if queue.OutboundEmailAddress != nil && !isQueueEmailAddressEmpty(*queue.OutboundEmailAddress) {
 			resources[*queue.Id] = &resourceExporter.ResourceMeta{Name: *queue.Name + "-email-address"}
 		}
 	}

@@ -7,7 +7,7 @@ import (
 	"terraform-provider-genesyscloud/genesyscloud/util/resourcedata"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/mypurecloud/platform-client-sdk-go/v129/platformclientv2"
+	"github.com/mypurecloud/platform-client-sdk-go/v143/platformclientv2"
 )
 
 func buildCobrowseSettings(d *schema.ResourceData) *platformclientv2.Cobrowsesettings {
@@ -25,16 +25,32 @@ func buildCobrowseSettings(d *schema.ResourceData) *platformclientv2.Cobrowseset
 
 	enabled, _ := cfg["enabled"].(bool)
 	allowAgentControl, _ := cfg["allow_agent_control"].(bool)
+	allowAgentNavigation, _ := cfg["allow_agent_navigation"].(bool)
 	channels := lists.InterfaceListToStrings(cfg["channels"].([]interface{}))
 	maskSelectors := lists.InterfaceListToStrings(cfg["mask_selectors"].([]interface{}))
 	readonlySelectors := lists.InterfaceListToStrings(cfg["readonly_selectors"].([]interface{}))
 
+	var pauseCriteria []platformclientv2.Pausecriteria
+	if v, ok := cfg["pause_criteria"]; ok {
+		for _, pc := range v.([]interface{}) {
+			pcMap := pc.(map[string]interface{})
+			urlFragment := pcMap["url_fragment"].(string)
+			condition := pcMap["condition"].(string)
+			pauseCriteria = append(pauseCriteria, platformclientv2.Pausecriteria{
+				UrlFragment: &urlFragment,
+				Condition:   &condition,
+			})
+		}
+	}
+
 	return &platformclientv2.Cobrowsesettings{
-		Enabled:           &enabled,
-		AllowAgentControl: &allowAgentControl,
-		Channels:          &channels,
-		MaskSelectors:     &maskSelectors,
-		ReadonlySelectors: &readonlySelectors,
+		Enabled:              &enabled,
+		AllowAgentControl:    &allowAgentControl,
+		AllowAgentNavigation: &allowAgentNavigation,
+		Channels:             &channels,
+		MaskSelectors:        &maskSelectors,
+		ReadonlySelectors:    &readonlySelectors,
+		PauseCriteria:        &pauseCriteria,
 	}
 }
 
@@ -121,7 +137,7 @@ func CustomizeConfigurationDiff(ctx context.Context, diff *schema.ResourceDiff, 
 	if len(diff.GetChangedKeysPrefix("")) > 0 {
 		// When any change is made to the configuration we automatically publish a new version, so mark the version as updated
 		// so dependent deployments will update appropriately to reference the newest version
-		diff.SetNewComputed("version")
+		_ = diff.SetNewComputed("version")
 	}
 	return nil
 }
@@ -156,12 +172,30 @@ func FlattenCobrowseSettings(cobrowseSettings *platformclientv2.Cobrowsesettings
 	}
 
 	return []interface{}{map[string]interface{}{
-		"enabled":             cobrowseSettings.Enabled,
-		"allow_agent_control": cobrowseSettings.AllowAgentControl,
-		"channels":            cobrowseSettings.Channels,
-		"mask_selectors":      cobrowseSettings.MaskSelectors,
-		"readonly_selectors":  cobrowseSettings.ReadonlySelectors,
+		"enabled":                cobrowseSettings.Enabled,
+		"allow_agent_control":    cobrowseSettings.AllowAgentControl,
+		"allow_agent_navigation": cobrowseSettings.AllowAgentNavigation,
+		"channels":               cobrowseSettings.Channels,
+		"mask_selectors":         cobrowseSettings.MaskSelectors,
+		"readonly_selectors":     cobrowseSettings.ReadonlySelectors,
+		"pause_criteria":         flattenPauseCriteria(cobrowseSettings.PauseCriteria),
 	}}
+}
+
+func flattenPauseCriteria(pauseCriteria *[]platformclientv2.Pausecriteria) []interface{} {
+	if pauseCriteria == nil {
+		return nil
+	}
+
+	criterias := make([]interface{}, len(*pauseCriteria))
+	for i, criteria := range *pauseCriteria {
+		criterias[i] = map[string]interface{}{
+			"url_fragment": *criteria.UrlFragment,
+			"condition":    *criteria.Condition,
+		}
+	}
+
+	return criterias
 }
 
 func flattenLocalizedLabels(localizedLabels *[]platformclientv2.Localizedlabels) []interface{} {

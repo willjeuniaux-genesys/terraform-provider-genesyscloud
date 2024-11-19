@@ -9,6 +9,7 @@ import (
 	workbin "terraform-provider-genesyscloud/genesyscloud/task_management_workbin"
 	workitemSchema "terraform-provider-genesyscloud/genesyscloud/task_management_workitem_schema"
 	worktype "terraform-provider-genesyscloud/genesyscloud/task_management_worktype"
+	worktypeStatus "terraform-provider-genesyscloud/genesyscloud/task_management_worktype_status"
 
 	"github.com/google/uuid"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
@@ -36,15 +37,19 @@ func TestAccDataSourceTaskManagementWorkitem(t *testing.T) {
 		wsDescription = "workitem schema created for CX as Code test case"
 
 		// worktype
-		wtResName         = "tf_worktype_1"
-		wtName            = "tf-worktype" + uuid.NewString()
-		wtDescription     = "tf-worktype-description"
-		wtOStatusName     = "Open Status"
-		wtOStatusDesc     = "Description of open status"
-		wtOStatusCategory = "Open"
-		wtCStatusName     = "Closed Status"
-		wtCStatusDesc     = "Description of closed status"
-		wtCStatusCategory = "Closed"
+		wtResName     = "tf_worktype_1"
+		wtName        = "tf-worktype" + uuid.NewString()
+		wtDescription = "tf-worktype-description"
+
+		// Worktype statuses
+		statusResourceOpen   = "open-status"
+		wtOStatusName        = "Open Status"
+		wtOStatusDesc        = "Description of open status"
+		wtOStatusCategory    = "Open"
+		statusResourceClosed = "closed-status"
+		wtCStatusName        = "Closed Status"
+		wtCStatusDesc        = "Description of closed status"
+		wtCStatusCategory    = "Closed"
 
 		// basic workitem
 		workitemRes = "workitem_1"
@@ -64,22 +69,25 @@ func TestAccDataSourceTaskManagementWorkitem(t *testing.T) {
 				wtDescription,
 				fmt.Sprintf("genesyscloud_task_management_workbin.%s.id", wbResourceId),
 				fmt.Sprintf("genesyscloud_task_management_workitem_schema.%s.id", wsResourceId),
-				// Needs both an open and closed status or workitems cannot be created for worktype.
-				fmt.Sprintf(`
-				statuses {
-					name = "%s"
-					description = "%s"
-					category = "%s"
-				}
-				statuses {
-					name = "%s"
-					description = "%s"
-					category = "%s"
-				}
-				default_status_name = "%s"
-				`, wtOStatusName, wtOStatusDesc, wtOStatusCategory,
-					wtCStatusName, wtCStatusDesc, wtCStatusCategory,
-					wtOStatusName),
+				"",
+			) +
+			worktypeStatus.GenerateWorktypeStatusResource(
+				statusResourceOpen,
+				fmt.Sprintf("genesyscloud_task_management_worktype.%s.id", wtResName),
+				wtOStatusName,
+				wtOStatusCategory,
+				wtOStatusDesc,
+				util.NullValue,
+				"",
+			) +
+			worktypeStatus.GenerateWorktypeStatusResource(
+				statusResourceClosed,
+				fmt.Sprintf("genesyscloud_task_management_worktype.%s.id", wtResName),
+				wtCStatusName,
+				wtCStatusCategory,
+				wtCStatusDesc,
+				util.NullValue,
+				"",
 			)
 	)
 	resource.Test(t, resource.TestCase{

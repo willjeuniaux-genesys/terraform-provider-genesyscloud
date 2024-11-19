@@ -15,7 +15,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/mypurecloud/platform-client-sdk-go/v129/platformclientv2"
+	"github.com/mypurecloud/platform-client-sdk-go/v143/platformclientv2"
 )
 
 /*
@@ -124,6 +124,7 @@ func readOutboundCampaign(ctx context.Context, d *schema.ResourceData, meta inte
 		resourcedata.SetNillableValue(d, "campaign_status", campaign.CampaignStatus)
 		resourcedata.SetNillableValueWithInterfaceArrayWithFunc(d, "phone_columns", campaign.PhoneColumns, flattenPhoneColumn)
 		resourcedata.SetNillableValue(d, "abandon_rate", campaign.AbandonRate)
+		resourcedata.SetNillableValue(d, "max_calls_per_agent", campaign.MaxCallsPerAgent)
 		if campaign.DncLists != nil {
 			_ = d.Set("dnc_list_ids", util.SdkDomainEntityRefArrToList(*campaign.DncLists))
 		}
@@ -147,6 +148,7 @@ func readOutboundCampaign(ctx context.Context, d *schema.ResourceData, meta inte
 		}
 		resourcedata.SetNillableReference(d, "division_id", campaign.Division)
 		resourcedata.SetNillableValueWithInterfaceArrayWithFunc(d, "dynamic_contact_queueing_settings", campaign.DynamicContactQueueingSettings, flattenSettings)
+		resourcedata.SetNillableValueWithInterfaceArrayWithFunc(d, "dynamic_line_balancing_settings", campaign.DynamicLineBalancingSettings, flattenLineBalancingSettings)
 
 		log.Printf("Read Outbound Campaign %s %s", d.Id(), *campaign.Name)
 		return cc.CheckState(d)

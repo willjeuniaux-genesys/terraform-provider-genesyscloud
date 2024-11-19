@@ -15,6 +15,12 @@ resource "genesyscloud_journey_action_map" "terraform_test_-TEST-CASE-" {
     maximum_probability = 0.666
     probability         = 0.125
   }
+  # optional
+  trigger_with_outcome_quantile_conditions {
+    outcome_id                  = genesyscloud_journey_outcome.terraform_test_-TEST-CASE-_action_map_dependency.id
+    max_quantile_threshold      = 0.666
+    fallback_quantile_threshold = 0.125
+  }
   page_url_conditions {
     values   = ["some_other_value", "some_other_value_2"]
     operator = "containsAny"
@@ -31,13 +37,21 @@ resource "genesyscloud_journey_action_map" "terraform_test_-TEST-CASE-" {
 resource "genesyscloud_journey_segment" "terraform_test_-TEST-CASE-_action_map_dependency" {
   display_name            = "terraform_test_-TEST-CASE-_action_map_dependency"
   color                   = "#008000"
-  scope                   = "Customer"
+  scope                   = "Session"
   should_display_to_agent = false
-  external_segment {
-    id     = "4654654654"
-    name   = "external segment name"
-    source = "AdobeExperiencePlatform"
-  }
+   journey {
+     patterns {
+       criteria {
+         key                = "page.title"
+         values             = ["Title"]
+         operator           = "notEqual"
+         should_ignore_case = true
+       }
+       count        = 1
+       stream_type  = "Web"
+       session_type = "web"
+     }
+   }
 }
 
 resource "genesyscloud_journey_outcome" "terraform_test_-TEST-CASE-_action_map_dependency" {

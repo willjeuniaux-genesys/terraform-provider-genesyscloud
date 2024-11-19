@@ -60,14 +60,12 @@ resource "genesyscloud_journey_segment" "example_journey_segment_resource" {
 
 - `color` (String) The hexadecimal color value of the segment.
 - `display_name` (String) The display name of the segment.
-- `scope` (String) The target entity that a segment applies to.Valid values: Session, Customer. Changing the scope attribute will cause the existing journey_segment to be dropped and recreated with new ID.
+- `scope` (String) The target entity that a segment applies to. Valid values: Session
 
 ### Optional
 
-- `assignment_expiration_days` (Number) Time, in days, from when the segment is assigned until it is automatically unassigned.
 - `context` (Block Set, Max: 1) The context of the segment. (see [below for nested schema](#nestedblock--context))
 - `description` (String) A description of the segment.
-- `external_segment` (Block Set, Max: 1) Details of an entity corresponding to this segment in an external system. (see [below for nested schema](#nestedblock--external_segment))
 - `is_active` (Boolean) Whether or not the segment is active. Defaults to `true`.
 - `journey` (Block Set, Max: 1) The pattern of rules defining the segment. (see [below for nested schema](#nestedblock--journey))
 - `should_display_to_agent` (Boolean) Whether or not the segment should be displayed to agent/supervisor users.
@@ -107,16 +105,6 @@ Optional:
 
 
 
-<a id="nestedblock--external_segment"></a>
-### Nested Schema for `external_segment`
-
-Required:
-
-- `id` (String) Identifier for the external segment in the system where it originates from. Changing the id attribute will cause the journey_segment resource to be dropped and recreated with a new ID.
-- `name` (String) Name for the external segment in the system where it originates from.
-- `source` (String) The external system where the segment originates from.Valid values: AdobeExperiencePlatform, Custom. Changing the source attribute will cause the journey_segment resource to be dropped and recreated with a new ID.
-
-
 <a id="nestedblock--journey"></a>
 ### Nested Schema for `journey`
 
@@ -131,8 +119,8 @@ Required:
 
 - `count` (Number) The number of times the pattern must match.
 - `criteria` (Block Set, Min: 1) A list of one or more criteria to satisfy. (see [below for nested schema](#nestedblock--journey--patterns--criteria))
-- `session_type` (String) The session type for which this pattern can be matched on.
-- `stream_type` (String) The stream type for which this pattern can be matched on.Valid values: Web, Custom, Conversation.
+- `session_type` (String) The session type for which this pattern can be matched on. Valid values: web, app.
+- `stream_type` (String) The stream type for which this pattern can be matched on. Valid values: Web, App.
 
 Optional:
 

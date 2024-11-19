@@ -8,9 +8,13 @@ import (
 	"strconv"
 	"strings"
 	"terraform-provider-genesyscloud/genesyscloud/architect_flow"
+	authDivision "terraform-provider-genesyscloud/genesyscloud/auth_division"
 	authRole "terraform-provider-genesyscloud/genesyscloud/auth_role"
 	"terraform-provider-genesyscloud/genesyscloud/provider"
+	routingEmailDomain "terraform-provider-genesyscloud/genesyscloud/routing_email_domain"
+	routinglanguage "terraform-provider-genesyscloud/genesyscloud/routing_language"
 	routingQueue "terraform-provider-genesyscloud/genesyscloud/routing_queue"
+	routingWrapupcode "terraform-provider-genesyscloud/genesyscloud/routing_wrapupcode"
 	userRoles "terraform-provider-genesyscloud/genesyscloud/user_roles"
 	"terraform-provider-genesyscloud/genesyscloud/util"
 	"testing"
@@ -22,7 +26,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
-	"github.com/mypurecloud/platform-client-sdk-go/v129/platformclientv2"
+	"github.com/mypurecloud/platform-client-sdk-go/v143/platformclientv2"
 )
 
 /*
@@ -917,8 +921,10 @@ func TestAccResourceMediaRetentionPolicyBasic(t *testing.T) {
 	}
 
 	var (
-		domainRes = "routing-domain1"
-		domainId  = fmt.Sprintf("terraformmedia%v.com", time.Now().Unix())
+		domainRes   = "routing-domain1"
+		domainId    = fmt.Sprintf("terraformmedia%v.com", time.Now().Unix())
+		divResource = "test-division"
+		divName     = "terraform-" + uuid.NewString()
 	)
 
 	_, err := provider.AuthorizeSdk()
@@ -932,7 +938,7 @@ func TestAccResourceMediaRetentionPolicyBasic(t *testing.T) {
 		ProviderFactories: provider.GetProviderFactories(providerResources, providerDataSources),
 		Steps: []resource.TestStep{
 			{
-				Config: gcloud.GenerateRoutingEmailDomainResource(
+				Config: routingEmailDomain.GenerateRoutingEmailDomainResource(
 					domainRes,
 					domainId,
 					util.FalseValue, // Subdomain
@@ -955,8 +961,9 @@ func TestAccResourceMediaRetentionPolicyBasic(t *testing.T) {
 					gcloud.GenerateEvaluationFormResource(evaluationFormResource1, &evaluationFormResourceBody) +
 					gcloud.GenerateSurveyFormResource(surveyFormResource1, &surveyFormResourceBody) +
 					integration.GenerateIntegrationResource(integrationResource1, strconv.Quote(integrationIntendedState), strconv.Quote(integrationType), "") +
-					gcloud.GenerateRoutingLanguageResource(languageResource1, languageName) +
-					gcloud.GenerateRoutingWrapupcodeResource(wrapupCodeResource1, wrapupCodeName) +
+					routinglanguage.GenerateRoutingLanguageResource(languageResource1, languageName) +
+					authDivision.GenerateAuthDivisionBasic(divResource, divName) +
+					routingWrapupcode.GenerateRoutingWrapupcodeResource(wrapupCodeResource1, wrapupCodeName, "genesyscloud_auth_division."+divResource+".id") +
 					architect_flow.GenerateFlowResource(
 						flowResource1,
 						filePath1,
@@ -1039,7 +1046,7 @@ func TestAccResourceMediaRetentionPolicyBasic(t *testing.T) {
 			},
 			{
 
-				Config: gcloud.GenerateRoutingEmailDomainResource(
+				Config: routingEmailDomain.GenerateRoutingEmailDomainResource(
 					domainRes,
 					domainId,
 					util.FalseValue, // Subdomain
@@ -1062,8 +1069,9 @@ func TestAccResourceMediaRetentionPolicyBasic(t *testing.T) {
 					gcloud.GenerateEvaluationFormResource(evaluationFormResource1, &evaluationFormResourceBody) +
 					gcloud.GenerateSurveyFormResource(surveyFormResource1, &surveyFormResourceBody) +
 					integration.GenerateIntegrationResource(integrationResource1, strconv.Quote(integrationIntendedState), strconv.Quote(integrationType), "") +
-					gcloud.GenerateRoutingLanguageResource(languageResource1, languageName) +
-					gcloud.GenerateRoutingWrapupcodeResource(wrapupCodeResource1, wrapupCodeName) +
+					routinglanguage.GenerateRoutingLanguageResource(languageResource1, languageName) +
+					authDivision.GenerateAuthDivisionBasic(divResource, divName) +
+					routingWrapupcode.GenerateRoutingWrapupcodeResource(wrapupCodeResource1, wrapupCodeName, "genesyscloud_auth_division."+divResource+".id") +
 					architect_flow.GenerateFlowResource(
 						flowResource1,
 						filePath1,
@@ -1146,7 +1154,7 @@ func TestAccResourceMediaRetentionPolicyBasic(t *testing.T) {
 			},
 			{
 
-				Config: gcloud.GenerateRoutingEmailDomainResource(
+				Config: routingEmailDomain.GenerateRoutingEmailDomainResource(
 					domainRes,
 					domainId,
 					util.FalseValue, // Subdomain
@@ -1169,8 +1177,9 @@ func TestAccResourceMediaRetentionPolicyBasic(t *testing.T) {
 					gcloud.GenerateEvaluationFormResource(evaluationFormResource1, &evaluationFormResourceBody) +
 					gcloud.GenerateSurveyFormResource(surveyFormResource1, &surveyFormResourceBody) +
 					integration.GenerateIntegrationResource(integrationResource1, strconv.Quote(integrationIntendedState), strconv.Quote(integrationType), "") +
-					gcloud.GenerateRoutingLanguageResource(languageResource1, languageName) +
-					gcloud.GenerateRoutingWrapupcodeResource(wrapupCodeResource1, wrapupCodeName) +
+					routinglanguage.GenerateRoutingLanguageResource(languageResource1, languageName) +
+					authDivision.GenerateAuthDivisionBasic(divResource, divName) +
+					routingWrapupcode.GenerateRoutingWrapupcodeResource(wrapupCodeResource1, wrapupCodeName, "genesyscloud_auth_division."+divResource+".id") +
 					architect_flow.GenerateFlowResource(
 						flowResource1,
 						filePath1,
@@ -1253,7 +1262,7 @@ func TestAccResourceMediaRetentionPolicyBasic(t *testing.T) {
 			},
 			{
 
-				Config: gcloud.GenerateRoutingEmailDomainResource(
+				Config: routingEmailDomain.GenerateRoutingEmailDomainResource(
 					domainRes,
 					domainId,
 					util.FalseValue, // Subdomain
@@ -1276,8 +1285,9 @@ func TestAccResourceMediaRetentionPolicyBasic(t *testing.T) {
 					gcloud.GenerateEvaluationFormResource(evaluationFormResource1, &evaluationFormResourceBody) +
 					gcloud.GenerateSurveyFormResource(surveyFormResource1, &surveyFormResourceBody) +
 					integration.GenerateIntegrationResource(integrationResource1, strconv.Quote(integrationIntendedState), strconv.Quote(integrationType), "") +
-					gcloud.GenerateRoutingLanguageResource(languageResource1, languageName) +
-					gcloud.GenerateRoutingWrapupcodeResource(wrapupCodeResource1, wrapupCodeName) +
+					routinglanguage.GenerateRoutingLanguageResource(languageResource1, languageName) +
+					authDivision.GenerateAuthDivisionBasic(divResource, divName) +
+					routingWrapupcode.GenerateRoutingWrapupcodeResource(wrapupCodeResource1, wrapupCodeName, "genesyscloud_auth_division."+divResource+".id") +
 					architect_flow.GenerateFlowResource(
 						flowResource1,
 						filePath1,
@@ -2403,14 +2413,4 @@ func GenerateResourceRoles(skillID string, divisionIds ...string) string {
 		%s
 	}
 	`, skillID, divAttr)
-}
-
-// TODO Duplicating this code within the function to not break a cyclid dependency
-func generateUserWithCustomAttrs(resourceID string, email string, name string, attrs ...string) string {
-	return fmt.Sprintf(`resource "genesyscloud_user" "%s" {
-		email = "%s"
-		name = "%s"
-		%s
-	}
-	`, resourceID, email, name, strings.Join(attrs, "\n"))
 }

@@ -2,7 +2,8 @@ package journey_outcome_predictor
 
 import (
 	"context"
-	"github.com/mypurecloud/platform-client-sdk-go/v129/platformclientv2"
+
+	"github.com/mypurecloud/platform-client-sdk-go/v143/platformclientv2"
 )
 
 /*

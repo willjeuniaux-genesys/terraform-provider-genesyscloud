@@ -3,7 +3,6 @@ package provider
 import (
 	"context"
 	"fmt"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"log"
 	"net/http"
 	"os"
@@ -12,11 +11,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
+
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
-	"github.com/mypurecloud/platform-client-sdk-go/v129/platformclientv2"
+	"github.com/mypurecloud/platform-client-sdk-go/v143/platformclientv2"
 )
+
+var orgDefaultCountryCode string
 
 func init() {
 	// Set descriptions to support markdown syntax, this will be used in document generation
@@ -87,20 +90,20 @@ func New(version string, providerResources map[string]*schema.Resource, provider
 					Type:        schema.TypeBool,
 					Optional:    true,
 					DefaultFunc: schema.EnvDefaultFunc("GENESYSCLOUD_SDK_DEBUG", false),
-					Description: "Enables debug tracing in the Genesys Cloud SDK. Output will be written to the local file 'sdk_debug.log'.",
+					Description: "Enables debug tracing in the Genesys Cloud SDK. Output will be written to the local file 'sdk_debug.log'. Can be set with the `GENESYSCLOUD_SDK_DEBUG` environment variable.",
 				},
 				"sdk_debug_format": {
 					Type:         schema.TypeString,
 					Optional:     true,
 					DefaultFunc:  schema.EnvDefaultFunc("GENESYSCLOUD_SDK_DEBUG_FORMAT", "Text"),
-					Description:  "Specifies the data format of the 'sdk_debug.log'. Only applicable if sdk_debug is true. Default value is Text.",
+					Description:  "Specifies the data format of the 'sdk_debug.log'. Only applicable if sdk_debug is true. Can be set with the `GENESYSCLOUD_SDK_DEBUG_FORMAT` environment variable. Default value is Text.",
 					ValidateFunc: validation.StringInSlice([]string{"Text", "Json"}, false),
 				},
 				"sdk_debug_file_path": {
 					Type:         schema.TypeString,
 					Optional:     true,
-					DefaultFunc:  schema.EnvDefaultFunc("GENESYSCLOUD_SDK_DEBUG", "sdk_debug.log"),
-					Description:  "Specifies the file path for the log file. Default value is sdk_debug.log",
+					DefaultFunc:  schema.EnvDefaultFunc("GENESYSCLOUD_SDK_DEBUG_FILE_PATH", "sdk_debug.log"),
+					Description:  "Specifies the file path for the log file. Can be set with the `GENESYSCLOUD_SDK_DEBUG_FILE_PATH` environment variable. Default value is sdk_debug.log",
 					ValidateFunc: validation.StringDoesNotMatch(regexp.MustCompile("^(|\\s+)$"), "Invalid File path "),
 				},
 				"token_pool_size": {
@@ -134,6 +137,7 @@ func New(version string, providerResources map[string]*schema.Resource, provider
 								DefaultFunc: schema.EnvDefaultFunc("GENESYSCLOUD_PROXY_PROTOCOL", nil),
 								Description: "Protocol for the proxy can be set with the `GENESYSCLOUD_PROXY_PROTOCOL` environment variable.",
 							},
+
 							"auth": {
 								Type:     schema.TypeSet,
 								Optional: true,
@@ -170,35 +174,40 @@ type ProviderMeta struct {
 	Version      string
 	ClientConfig *platformclientv2.Configuration
 	Domain       string
+	Organization *platformclientv2.Organization
 }
 
 func configure(version string) schema.ConfigureContextFunc {
 	return func(context context.Context, data *schema.ResourceData) (interface{}, diag.Diagnostics) {
-		// Initialize a single client if we have an access token
-		accessToken := data.Get("access_token").(string)
-		if accessToken != "" {
-			Once.Do(func() {
-				sdkConfig := platformclientv2.GetDefaultConfiguration()
-				_ = InitClientConfig(data, version, sdkConfig)
-
-				SdkClientPool = &SDKClientPool{
-					Pool: make(chan *platformclientv2.Configuration, 1),
-				}
-				SdkClientPool.Pool <- sdkConfig
-			})
-		} else {
-			// Initialize the SDK Client pool
-			err := InitSDKClientPool(data.Get("token_pool_size").(int), version, data)
-			if err != nil {
-				return nil, err
-			}
+		err := InitSDKClientPool(data.Get("token_pool_size").(int), version, data)
+		if err != nil {
+			return nil, err
 		}
+
+		defaultConfig := platformclientv2.GetDefaultConfiguration()
+
+		currentOrg, err := getOrganizationMe(defaultConfig)
+		if err != nil {
+			return nil, err
+		}
+		orgDefaultCountryCode = *currentOrg.DefaultCountryCode
+
 		return &ProviderMeta{
 			Version:      version,
-			ClientConfig: platformclientv2.GetDefaultConfiguration(),
+			ClientConfig: defaultConfig,
 			Domain:       getRegionDomain(data.Get("aws_region").(string)),
+			Organization: currentOrg,
 		}, nil
 	}
+}
+
+func getOrganizationMe(defaultConfig *platformclientv2.Configuration) (*platformclientv2.Organization, diag.Diagnostics) {
+	orgApiClient := platformclientv2.NewOrganizationApiWithConfig(defaultConfig)
+	me, _, err := orgApiClient.GetOrganizationsMe()
+	if err != nil {
+		return nil, diag.FromErr(err)
+	}
+	return me, nil
 }
 
 func getRegionMap() map[string]string {
@@ -259,14 +268,23 @@ func InitClientConfig(data *schema.ResourceData, version string, config *platfor
 		RetryWaitMax: time.Second * 30,
 		RetryMax:     20,
 		RequestLogHook: func(request *http.Request, count int) {
-			if count > 0 && request != nil {
-				log.Printf("Retry #%d for %s %s", count, request.Method, request.URL)
+			sdkDebugRequest := newSDKDebugRequest(request, count)
+			request.Header.Set("TF-Correlation-Id", sdkDebugRequest.TransactionId)
+			err, jsonStr := sdkDebugRequest.ToJSON()
+
+			if err != nil {
+				log.Printf("WARNING: Unable to log RequestLogHook: %s", err)
 			}
+			log.Printf(jsonStr)
 		},
 		ResponseLogHook: func(response *http.Response) {
-			if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
-				log.Printf("Response %s for request:%s %s", response.Status, response.Request.Method, response.Request.URL)
+			sdkDebugResponse := newSDKDebugResponse(response)
+			err, jsonStr := sdkDebugResponse.ToJSON()
+
+			if err != nil {
+				log.Printf("WARNING: Unable to log ResponseLogHook: %s", err)
 			}
+			log.Printf(jsonStr)
 		},
 	}
 

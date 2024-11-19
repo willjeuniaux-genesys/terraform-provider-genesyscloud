@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"terraform-provider-genesyscloud/genesyscloud"
+	authDivision "terraform-provider-genesyscloud/genesyscloud/auth_division"
 	authRole "terraform-provider-genesyscloud/genesyscloud/auth_role"
 	"terraform-provider-genesyscloud/genesyscloud/provider"
+	"terraform-provider-genesyscloud/genesyscloud/user"
 	"terraform-provider-genesyscloud/genesyscloud/util"
 	"terraform-provider-genesyscloud/genesyscloud/util/lists"
 	"testing"
@@ -42,7 +43,7 @@ func TestAccResourceUserRolesMembership(t *testing.T) {
 			{
 				// Create user with 1 role in default division
 				// Also add employee role reference as new user's automatically get this role
-				Config: "data \"genesyscloud_auth_division_home\" \"home\" {}\n" + genesyscloud.GenerateBasicUserResource(
+				Config: "data \"genesyscloud_auth_division_home\" \"home\" {}\n" + user.GenerateBasicUserResource(
 					userResource1,
 					email1,
 					userName1,
@@ -69,7 +70,7 @@ func TestAccResourceUserRolesMembership(t *testing.T) {
 			},
 			{
 				// Create another role and division and add to the user
-				Config: "data \"genesyscloud_auth_division_home\" \"home\" {}\n" + genesyscloud.GenerateBasicUserResource(
+				Config: "data \"genesyscloud_auth_division_home\" \"home\" {}\n" + user.GenerateBasicUserResource(
 					userResource1,
 					email1,
 					userName1,
@@ -87,7 +88,7 @@ func TestAccResourceUserRolesMembership(t *testing.T) {
 					generateResourceRoles("genesyscloud_auth_role."+roleResource1+".id"),
 					generateResourceRoles("genesyscloud_auth_role."+roleResource2+".id",
 						"genesyscloud_auth_division."+divResource+".id", "data.genesyscloud_auth_division_home.home.id"),
-				) + genesyscloud.GenerateAuthDivisionBasic(divResource, divName),
+				) + authDivision.GenerateAuthDivisionBasic(divResource, divName),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr("genesyscloud_user_roles."+userRoleResource, "roles.1.division_ids.#", "0"),
 					resource.TestCheckResourceAttr("genesyscloud_user_roles."+userRoleResource, "roles.0.division_ids.#", "2"),
@@ -98,7 +99,7 @@ func TestAccResourceUserRolesMembership(t *testing.T) {
 			},
 			{
 				// Remove a role from the user and modify division
-				Config: genesyscloud.GenerateBasicUserResource(
+				Config: user.GenerateBasicUserResource(
 					userResource1,
 					email1,
 					userName1,
@@ -110,14 +111,14 @@ func TestAccResourceUserRolesMembership(t *testing.T) {
 					userRoleResource,
 					userResource1,
 					generateResourceRoles("genesyscloud_auth_role."+roleResource1+".id", "genesyscloud_auth_division."+divResource+".id"),
-				) + genesyscloud.GenerateAuthDivisionBasic(divResource, divName),
+				) + authDivision.GenerateAuthDivisionBasic(divResource, divName),
 				Check: resource.ComposeTestCheckFunc(
 					validateResourceRole("genesyscloud_user_roles."+userRoleResource, "genesyscloud_auth_role."+roleResource1, "genesyscloud_auth_division."+divResource),
 				),
 			},
 			{
 				// Remove all roles from the user
-				Config: genesyscloud.GenerateBasicUserResource(
+				Config: user.GenerateBasicUserResource(
 					userResource1,
 					email1,
 					userName1,
@@ -128,7 +129,7 @@ func TestAccResourceUserRolesMembership(t *testing.T) {
 				) + GenerateUserRoles(
 					userRoleResource,
 					userResource1,
-				) + genesyscloud.GenerateAuthDivisionBasic(divResource, divName),
+				) + authDivision.GenerateAuthDivisionBasic(divResource, divName),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckNoResourceAttr("genesyscloud_user_roles."+userRoleResource, "roles.%"),
 				),

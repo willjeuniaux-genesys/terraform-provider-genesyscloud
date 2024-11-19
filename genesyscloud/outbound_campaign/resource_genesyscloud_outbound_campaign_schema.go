@@ -107,6 +107,12 @@ func ResourceOutboundCampaign() *schema.Resource {
 				Optional:    true,
 				Type:        schema.TypeFloat,
 			},
+			`max_calls_per_agent`: {
+				Description:  `The maximum number of calls that can be placed per agent on this campaign.`,
+				Optional:     true,
+				Type:         schema.TypeInt,
+				ValidateFunc: validation.IntAtLeast(1),
+			},
 			`dnc_list_ids`: {
 				Description: `DncLists for this Campaign to check before placing a call.`,
 				Optional:    true,
@@ -207,6 +213,28 @@ func ResourceOutboundCampaign() *schema.Resource {
 							Type:        schema.TypeBool,
 							Required:    true,
 							ForceNew:    true,
+						},
+					},
+				},
+			},
+			`dynamic_line_balancing_settings`: {
+				Description: `Dynamic line balancing settings.`,
+				Type:        schema.TypeList,
+				MaxItems:    1,
+				Optional:    true,
+				Computed:    true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"enabled": {
+							Description: "Indicates that this campaign is subject of dynamic line balancing.",
+							Type:        schema.TypeBool,
+							Optional:    true,
+						},
+						"relative_weight": {
+							Description:  "Relative weight of this campaign in dynamic line balancing.",
+							Type:         schema.TypeInt,
+							Optional:     true,
+							ValidateFunc: validation.IntBetween(0, 100),
 						},
 					},
 				},

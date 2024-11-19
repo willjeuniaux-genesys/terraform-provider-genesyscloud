@@ -2,15 +2,17 @@ package team
 
 import (
 	"fmt"
-	"github.com/google/uuid"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
-	"github.com/mypurecloud/platform-client-sdk-go/v129/platformclientv2"
+	"math/rand"
 	"strings"
 	"terraform-provider-genesyscloud/genesyscloud/provider"
 	"terraform-provider-genesyscloud/genesyscloud/util"
 	"testing"
 
-	gcloud "terraform-provider-genesyscloud/genesyscloud"
+	"github.com/google/uuid"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
+	"github.com/mypurecloud/platform-client-sdk-go/v143/platformclientv2"
+
+	authDivision "terraform-provider-genesyscloud/genesyscloud/auth_division"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 )
@@ -38,7 +40,7 @@ func TestAccResourceTeam(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				// Create Team
-				Config: gcloud.GenerateAuthDivisionBasic(divResource, divName) + generateTeamResource(
+				Config: authDivision.GenerateAuthDivisionBasic(divResource, divName) + generateTeamResource(
 					resourceId,
 					name1,
 					"genesyscloud_auth_division."+divResource+".id",
@@ -52,7 +54,7 @@ func TestAccResourceTeam(t *testing.T) {
 			},
 			{
 				// Update Team
-				Config: gcloud.GenerateAuthDivisionBasic(divResource, divName) + generateTeamResource(
+				Config: authDivision.GenerateAuthDivisionBasic(divResource, divName) + generateTeamResource(
 					resourceId,
 					name2,
 					"genesyscloud_auth_division."+divResource+".id",
@@ -95,7 +97,7 @@ func TestAccResourceTeamAddMembers(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				// Create Team
-				Config: gcloud.GenerateAuthDivisionBasic(divResource, divName) +
+				Config: authDivision.GenerateAuthDivisionBasic(divResource, divName) +
 					generateTeamResource(
 						resourceId,
 						name1,
@@ -110,7 +112,7 @@ func TestAccResourceTeamAddMembers(t *testing.T) {
 			},
 			{
 				// Update Team with one member
-				Config: gcloud.GenerateAuthDivisionBasic(divResource, divName) +
+				Config: authDivision.GenerateAuthDivisionBasic(divResource, divName) +
 					generateUserWithDivisionId(testUserResource1, testUserName1, testUserEmail1, "genesyscloud_auth_division."+divResource+".id") +
 					generateTeamResource(
 						resourceId,
@@ -160,7 +162,7 @@ func TestAccResourceTeamRemoveMembers(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				// Create Team with member
-				Config: gcloud.GenerateAuthDivisionBasic(divResource, divName) +
+				Config: authDivision.GenerateAuthDivisionBasic(divResource, divName) +
 					generateUserWithDivisionId(testUserResource1, testUserName1, testUserEmail1, "genesyscloud_auth_division."+divResource+".id") +
 					generateTeamResource(
 						resourceId,
@@ -181,12 +183,13 @@ func TestAccResourceTeamRemoveMembers(t *testing.T) {
 			},
 			{
 				// Update Team with no members
-				Config: gcloud.GenerateAuthDivisionBasic(divResource, divName) +
+				Config: authDivision.GenerateAuthDivisionBasic(divResource, divName) +
 					generateTeamResource(
 						resourceId,
 						name1,
 						"genesyscloud_auth_division."+divResource+".id",
 						description1,
+						generateMemberIdsArray([]string{}),
 					),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr("genesyscloud_team."+resourceId, "name", name1),
@@ -254,4 +257,13 @@ func testVerifyTeamDestroyed(state *terraform.State) error {
 	}
 
 	return nil
+}
+
+func randString(n int) string {
+	const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	s := make([]byte, n)
+	for i := range s {
+		s[i] = letters[rand.Intn(len(letters))]
+	}
+	return string(s)
 }

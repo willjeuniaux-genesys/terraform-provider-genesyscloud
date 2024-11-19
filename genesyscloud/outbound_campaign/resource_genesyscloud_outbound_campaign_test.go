@@ -6,23 +6,26 @@ import (
 	"strconv"
 	"strings"
 	"terraform-provider-genesyscloud/genesyscloud/architect_flow"
+	location "terraform-provider-genesyscloud/genesyscloud/location"
 	"terraform-provider-genesyscloud/genesyscloud/outbound"
 	obDnclist "terraform-provider-genesyscloud/genesyscloud/outbound_dnclist"
 	"terraform-provider-genesyscloud/genesyscloud/provider"
 	"terraform-provider-genesyscloud/genesyscloud/util"
 	"testing"
+	"time"
 
-	gcloud "terraform-provider-genesyscloud/genesyscloud"
+	authDivision "terraform-provider-genesyscloud/genesyscloud/auth_division"
 	obCallableTimeset "terraform-provider-genesyscloud/genesyscloud/outbound_callabletimeset"
 	obResponseSet "terraform-provider-genesyscloud/genesyscloud/outbound_callanalysisresponseset"
 	obContactList "terraform-provider-genesyscloud/genesyscloud/outbound_contact_list"
 	obContactListFilter "terraform-provider-genesyscloud/genesyscloud/outbound_contactlistfilter"
+	routingWrapupcode "terraform-provider-genesyscloud/genesyscloud/routing_wrapupcode"
 	edgeSite "terraform-provider-genesyscloud/genesyscloud/telephony_providers_edges_site"
 
 	"github.com/google/uuid"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
-	"github.com/mypurecloud/platform-client-sdk-go/v129/platformclientv2"
+	"github.com/mypurecloud/platform-client-sdk-go/v143/platformclientv2"
 )
 
 // Add a special generator DEVENGAGE-1646.  Basically, the API makes it look like you need a full phone_columns field here.  However, the API ignores the type because the devs reused the phone_columns object.  However,
@@ -37,8 +40,6 @@ func generatePhoneColumnNoTypeBlock(columnName string) string {
 }
 
 func TestAccResourceOutboundCampaignBasic(t *testing.T) {
-	t.Parallel()
-
 	var (
 		resourceId            = "campaign1"
 		name                  = "Test Campaign " + uuid.NewString()
@@ -64,6 +65,8 @@ func TestAccResourceOutboundCampaignBasic(t *testing.T) {
 		nameUpdated          = "Test Campaign " + uuid.NewString()
 		callerNameUpdated    = "Test Name 2"
 		callerAddressUpdated = "+353371112111"
+		divResource          = "test-division"
+		divName              = "terraform-" + uuid.NewString()
 	)
 
 	emergencyNumber := "+13178793428"
@@ -101,9 +104,10 @@ func TestAccResourceOutboundCampaignBasic(t *testing.T) {
 	) + obDnclist.GenerateOutboundDncListBasic(
 		dncListResourceId,
 		"dnc list "+uuid.NewString(),
-	) + gcloud.GenerateRoutingWrapupcodeResource(
+	) + authDivision.GenerateAuthDivisionBasic(divResource, divName) + routingWrapupcode.GenerateRoutingWrapupcodeResource(
 		wrapupCodeResourceId,
 		"tf wrapup code"+uuid.NewString(),
+		"genesyscloud_auth_division."+divResource+".id",
 	) + architect_flow.GenerateFlowResource(
 		"flow",
 		outboundFlowFilePath,
@@ -143,16 +147,16 @@ func TestAccResourceOutboundCampaignBasic(t *testing.T) {
 				"",
 			),
 		),
-	) + gcloud.GenerateLocationResource(
+	) + location.GenerateLocationResource(
 		locationResourceId,
 		"tf location "+uuid.NewString(),
 		"HQ1",
 		[]string{},
-		gcloud.GenerateLocationEmergencyNum(
+		location.GenerateLocationEmergencyNum(
 			"+13178793428",
 			util.NullValue,
 		),
-		gcloud.GenerateLocationAddress(
+		location.GenerateLocationAddress(
 			"7601 Interactive Way",
 			"Indianapolis",
 			"IN",
@@ -188,6 +192,9 @@ func TestAccResourceOutboundCampaignBasic(t *testing.T) {
 		ProviderFactories: provider.GetProviderFactories(providerResources, providerDataSources),
 		Steps: []resource.TestStep{
 			{
+				PreConfig: func() {
+					time.Sleep(30 * time.Second)
+				},
 				Config: referencedResources + generateOutboundCampaign(
 					resourceId,
 					name,
@@ -201,6 +208,7 @@ func TestAccResourceOutboundCampaignBasic(t *testing.T) {
 					util.NullValue, // queue id
 					"genesyscloud_telephony_providers_edges_site."+siteId+".id",
 					"1",
+					util.NullValue,
 					"genesyscloud_outbound_callabletimeset."+callableTimeSetId+".id",
 					"genesyscloud_outbound_callanalysisresponseset."+carResourceId+".id",
 					"1",
@@ -269,6 +277,7 @@ func TestAccResourceOutboundCampaignBasic(t *testing.T) {
 					util.NullValue, // queue id
 					"genesyscloud_telephony_providers_edges_site."+siteId+".id",
 					"1",
+					util.NullValue,
 					"genesyscloud_outbound_callabletimeset."+callableTimeSetId+".id",
 					"genesyscloud_outbound_callanalysisresponseset."+carResourceId+".id",
 					"1",
@@ -337,6 +346,7 @@ func TestAccResourceOutboundCampaignBasic(t *testing.T) {
 					util.NullValue, // queue id
 					"genesyscloud_telephony_providers_edges_site."+siteId+".id",
 					"2",
+					util.NullValue,
 					"genesyscloud_outbound_callabletimeset."+callableTimeSetId+".id",
 					"genesyscloud_outbound_callanalysisresponseset."+carResourceId+".id",
 					"2",
@@ -402,7 +412,7 @@ func TestAccResourceOutboundCampaignBasic(t *testing.T) {
 }
 
 func TestAccResourceOutboundCampaignCampaignStatus(t *testing.T) {
-	t.Parallel()
+
 	var (
 		resourceId            = "campaign2"
 		name                  = "Test Campaign " + uuid.NewString()
@@ -415,6 +425,8 @@ func TestAccResourceOutboundCampaignCampaignStatus(t *testing.T) {
 		flowResourceId        = "flow"
 		wrapupcodeResourceId  = "wrapupcode"
 		locationResourceId    = "location"
+		divResource           = "test-division"
+		divName               = "terraform-" + uuid.NewString()
 	)
 
 	emergencyNumber := "+13178793429"
@@ -442,9 +454,10 @@ func TestAccResourceOutboundCampaignCampaignStatus(t *testing.T) {
 			"home",
 			strconv.Quote("Home"),
 		),
-	) + gcloud.GenerateRoutingWrapupcodeResource(
+	) + authDivision.GenerateAuthDivisionBasic(divResource, divName) + routingWrapupcode.GenerateRoutingWrapupcodeResource(
 		wrapupcodeResourceId,
 		"tf wrapup code"+uuid.NewString(),
+		"genesyscloud_auth_division."+divResource+".id",
 	) + architect_flow.GenerateFlowResource(
 		flowResourceId,
 		outboundFlowFilePath,
@@ -468,16 +481,16 @@ func TestAccResourceOutboundCampaignCampaignStatus(t *testing.T) {
 				"${genesyscloud_flow.flow.id}",
 			),
 		),
-	) + gcloud.GenerateLocationResource(
+	) + location.GenerateLocationResource(
 		locationResourceId,
 		"tf location "+uuid.NewString(),
 		"HQ1",
 		[]string{},
-		gcloud.GenerateLocationEmergencyNum(
+		location.GenerateLocationEmergencyNum(
 			"+13178793429",
 			util.NullValue,
 		),
-		gcloud.GenerateLocationAddress(
+		location.GenerateLocationAddress(
 			"7601 Interactive Way",
 			"Indianapolis",
 			"IN",
@@ -600,11 +613,10 @@ func TestAccResourceOutboundCampaignCampaignStatus(t *testing.T) {
 }
 
 func TestAccResourceOutboundCampaignStatusOn(t *testing.T) {
-	t.Skip("Outbound Campaign is not switched off, destroy fails as campaign keeps running")
 	t.Parallel()
 	var (
 		resourceId            = "campaign3"
-		name                  = "Test Campaign " + uuid.NewString()
+		name                  = "Test Campaign - " + uuid.NewString()
 		contactListResourceId = "contact_list"
 		carResourceId         = "car"
 		siteId                = "site"
@@ -613,6 +625,8 @@ func TestAccResourceOutboundCampaignStatusOn(t *testing.T) {
 		flowResourceId        = "flow"
 		wrapupcodeResourceId  = "wrapupcode"
 		locationResourceId    = "location"
+		divResourceId         = "test-outbound-campaign-division"
+		divName               = "terraform-" + uuid.NewString()
 	)
 
 	emergencyNumber := "+13178793430"
@@ -627,44 +641,50 @@ func TestAccResourceOutboundCampaignStatusOn(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create resources for outbound campaign
 			{
-				Config: `data "genesyscloud_auth_division_home" "home" {}` + GenerateReferencedResourcesForOutboundCampaignTests(
-					contactListResourceId,
-					"",
-					"",
-					carResourceId,
-					outboundFlowFilePath,
-					flowResourceId,
-					flowName,
-					"",
-					siteId,
-					emergencyNumber,
-					"",
-					"",
-					"${data.genesyscloud_auth_division_home.home.name}",
-					locationResourceId,
-					wrapupcodeResourceId,
-				),
+				Config: `data "genesyscloud_auth_division_home" "home" {}` + "\n" +
+					authDivision.GenerateAuthDivisionBasic(divResourceId, divName) +
+					GenerateReferencedResourcesForOutboundCampaignTests(
+						contactListResourceId,
+						"",
+						"",
+						carResourceId,
+						outboundFlowFilePath,
+						flowResourceId,
+						flowName,
+						"",
+						siteId,
+						emergencyNumber,
+						"",
+						"",
+						"${data.genesyscloud_auth_division_home.home.name}",
+						locationResourceId,
+						wrapupcodeResourceId,
+						divResourceId,
+					),
 				// Add contacts to the contact list (because we have access to the state and can pull out the contactlist ID to pass to the API)
 				Check: addContactsToContactList,
 			},
 			// Now, we create the outbound campaign and it should stay running because it has contacts to call. We leave it running to test
 			// the destroy command takes care of turning it off before deleting.
 			{
-				Config: `data "genesyscloud_auth_division_home" "home" {}` + GenerateOutboundCampaignBasic(
-					resourceId,
-					name,
-					contactListResourceId,
-					siteId,
-					emergencyNumber,
-					carResourceId,
-					strconv.Quote("on"),
-					outboundFlowFilePath,
-					flowResourceId,
-					flowName,
-					"${data.genesyscloud_auth_division_home.home.name}",
-					locationResourceId,
-					wrapupcodeResourceId,
-				),
+				Config: `data "genesyscloud_auth_division_home" "home" {}` + "\n" +
+					authDivision.GenerateAuthDivisionBasic(divResourceId, divName) +
+					GenerateOutboundCampaignBasic(
+						resourceId,
+						name,
+						contactListResourceId,
+						siteId,
+						emergencyNumber,
+						carResourceId,
+						strconv.Quote("on"),
+						outboundFlowFilePath,
+						flowResourceId,
+						flowName,
+						"${data.genesyscloud_auth_division_home.home.name}",
+						locationResourceId,
+						wrapupcodeResourceId,
+						divResourceId,
+					),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr("genesyscloud_outbound_campaign."+resourceId, "name", name),
 					resource.TestCheckResourceAttrPair("genesyscloud_outbound_campaign."+resourceId, "contact_list_id",
@@ -674,9 +694,12 @@ func TestAccResourceOutboundCampaignStatusOn(t *testing.T) {
 					resource.TestCheckResourceAttrPair("genesyscloud_outbound_campaign."+resourceId, "call_analysis_response_set_id",
 						"genesyscloud_outbound_callanalysisresponseset."+carResourceId, "id"),
 					util.VerifyAttributeInArrayOfPotentialValues("genesyscloud_outbound_campaign."+resourceId, "campaign_status", []string{"on", "complete"}),
+					func(s *terraform.State) error {
+						time.Sleep(300 * time.Second) // Takes approx. 300 seconds for campaign to be completed / stopped
+						return nil
+					},
 				),
 			},
-			// Don't turn campaign back off to ensure campaign can be destroyed properly by turning it off within the destroy handler
 			{
 				// Import/Read
 				ResourceName:            "genesyscloud_outbound_campaign." + resourceId,
@@ -731,6 +754,7 @@ func TestAccResourceOutboundCampaignWithScriptId(t *testing.T) {
 		"",
 		"",
 		"",
+		"",
 	)
 
 	referencedResourcesUpdate := GenerateReferencedResourcesForOutboundCampaignTests(
@@ -746,6 +770,7 @@ func TestAccResourceOutboundCampaignWithScriptId(t *testing.T) {
 		"",
 		ruleSetResourceId,
 		callableTimeSetResourceId,
+		"",
 		"",
 		"",
 		"",
@@ -768,6 +793,7 @@ func TestAccResourceOutboundCampaignWithScriptId(t *testing.T) {
 						util.NullValue,
 						strconv.Quote(scriptId),
 						"genesyscloud_routing_queue."+queueResourceId+".id",
+						util.NullValue,
 						util.NullValue,
 						util.NullValue,
 						util.NullValue,
@@ -812,6 +838,7 @@ func TestAccResourceOutboundCampaignWithScriptId(t *testing.T) {
 						"genesyscloud_routing_queue."+queueResourceId+".id",
 						util.NullValue,
 						"1",
+						util.NullValue,
 						"genesyscloud_outbound_callabletimeset."+callableTimeSetResourceId+".id",
 						"genesyscloud_outbound_callanalysisresponseset."+carResourceId+".id",
 						"1",
@@ -862,6 +889,163 @@ func TestAccResourceOutboundCampaignWithScriptId(t *testing.T) {
 					resource.TestCheckResourceAttrPair("genesyscloud_outbound_campaign."+resourceId, "callable_time_set_id",
 						"genesyscloud_outbound_callabletimeset."+callableTimeSetResourceId, "id"),
 					provider.TestDefaultHomeDivision("genesyscloud_outbound_campaign."+resourceId),
+				),
+			},
+			{
+				// Import/Read
+				ResourceName:      "genesyscloud_outbound_campaign." + resourceId,
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+		},
+		CheckDestroy: testVerifyOutboundCampaignDestroyed,
+	})
+}
+
+func TestAccResourceOutboundCampaignPower(t *testing.T) {
+	t.Parallel()
+	var (
+		resourceId            = "campaign5"
+		name                  = "Test Campaign " + uuid.NewString()
+		dialingMode           = "power"
+		callerName            = "Test Name 123"
+		callerAddress         = "+353371111111"
+		contactListResourceId = "contact_list"
+		queueResourceId       = "queue"
+		locationResourceId    = "location"
+		siteId                = "site"
+		carResourceId         = "car"
+	)
+
+	emergencyNumber := "+13178793431"
+	if err := edgeSite.DeleteLocationWithNumber(emergencyNumber, sdkConfig); err != nil {
+		t.Skipf("failed to delete location with number %s: %v", emergencyNumber, err)
+	}
+
+	scriptId, err := getPublishedScriptId()
+	if err != nil || scriptId == "" {
+		t.Skip("Skipping as a published script ID is needed to run this test")
+	}
+
+	referencedResources := GenerateReferencedResourcesForOutboundCampaignTests(
+		contactListResourceId,
+		"",
+		queueResourceId,
+		carResourceId,
+		"",
+		"",
+		"",
+		"",
+		siteId,
+		emergencyNumber,
+		"",
+		"",
+		"",
+		locationResourceId,
+		"",
+		"",
+	)
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:          func() { util.TestAccPreCheck(t) },
+		ProviderFactories: provider.GetProviderFactories(providerResources, providerDataSources),
+		Steps: []resource.TestStep{
+			{
+				Config: referencedResources +
+					generateOutboundCampaign(
+						resourceId,
+						name,
+						dialingMode,
+						callerName,
+						callerAddress,
+						"genesyscloud_outbound_contact_list."+contactListResourceId+".id",
+						util.NullValue,
+						util.NullValue,
+						strconv.Quote(scriptId),
+						"genesyscloud_routing_queue."+queueResourceId+".id",
+						"genesyscloud_telephony_providers_edges_site."+siteId+".id",
+						"1",
+						"1",
+						util.NullValue,
+						"genesyscloud_outbound_callanalysisresponseset."+carResourceId+".id",
+						"1",
+						util.NullValue,
+						util.NullValue,
+						util.NullValue,
+						util.NullValue,
+						util.NullValue,
+						[]string{},
+						[]string{},
+						[]string{},
+						generatePhoneColumnNoTypeBlock("Cell"),
+						generateDynamicLineBalancingSettingsBlock(util.FalseValue, "0"),
+					),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("genesyscloud_outbound_campaign."+resourceId, "name", name),
+					resource.TestCheckResourceAttr("genesyscloud_outbound_campaign."+resourceId, "dialing_mode", dialingMode),
+					resource.TestCheckResourceAttr("genesyscloud_outbound_campaign."+resourceId, "caller_name", callerName),
+					resource.TestCheckResourceAttr("genesyscloud_outbound_campaign."+resourceId, "caller_address", callerAddress),
+					resource.TestCheckResourceAttr("genesyscloud_outbound_campaign."+resourceId, "max_calls_per_agent", "1"),
+					resource.TestCheckResourceAttr("genesyscloud_outbound_campaign."+resourceId, "phone_columns.0.column_name", "Cell"),
+					resource.TestCheckResourceAttr("genesyscloud_outbound_campaign."+resourceId, "outbound_line_count", "1"),
+					resource.TestCheckResourceAttrPair("genesyscloud_outbound_campaign."+resourceId, "contact_list_id",
+						"genesyscloud_outbound_contact_list."+contactListResourceId, "id"),
+					resource.TestCheckResourceAttrPair("genesyscloud_outbound_campaign."+resourceId, "queue_id",
+						"genesyscloud_routing_queue."+queueResourceId, "id"),
+					resource.TestCheckResourceAttr("genesyscloud_outbound_campaign."+resourceId,
+						"dynamic_line_balancing_settings.0.enabled", "false"),
+					resource.TestCheckResourceAttr("genesyscloud_outbound_campaign."+resourceId,
+						"dynamic_line_balancing_settings.0.relative_weight", "0"),
+				),
+			},
+			{
+				// update
+				Config: referencedResources +
+					generateOutboundCampaign(
+						resourceId,
+						name,
+						dialingMode,
+						callerName,
+						callerAddress,
+						"genesyscloud_outbound_contact_list."+contactListResourceId+".id",
+						util.NullValue,
+						util.NullValue,
+						strconv.Quote(scriptId),
+						"genesyscloud_routing_queue."+queueResourceId+".id",
+						"genesyscloud_telephony_providers_edges_site."+siteId+".id",
+						"1",
+						"2",
+						util.NullValue,
+						"genesyscloud_outbound_callanalysisresponseset."+carResourceId+".id",
+						util.NullValue,
+						util.NullValue,
+						util.NullValue,
+						util.NullValue,
+						util.NullValue,
+						util.NullValue,
+						[]string{},
+						[]string{},
+						[]string{},
+						generatePhoneColumnNoTypeBlock("Cell"),
+						generateDynamicLineBalancingSettingsBlock(util.TrueValue, "15"),
+					),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("genesyscloud_outbound_campaign."+resourceId, "name", name),
+					resource.TestCheckResourceAttr("genesyscloud_outbound_campaign."+resourceId, "dialing_mode", dialingMode),
+					resource.TestCheckResourceAttr("genesyscloud_outbound_campaign."+resourceId, "caller_name", callerName),
+					resource.TestCheckResourceAttr("genesyscloud_outbound_campaign."+resourceId, "caller_address", callerAddress),
+					resource.TestCheckResourceAttr("genesyscloud_outbound_campaign."+resourceId, "max_calls_per_agent", "2"),
+					resource.TestCheckResourceAttr("genesyscloud_outbound_campaign."+resourceId, "phone_columns.0.column_name", "Cell"),
+					resource.TestCheckResourceAttrPair("genesyscloud_outbound_campaign."+resourceId, "contact_list_id",
+						"genesyscloud_outbound_contact_list."+contactListResourceId, "id"),
+					resource.TestCheckResourceAttrPair("genesyscloud_outbound_campaign."+resourceId, "queue_id",
+						"genesyscloud_routing_queue."+queueResourceId, "id"),
+					resource.TestCheckResourceAttrPair("genesyscloud_outbound_campaign."+resourceId, "queue_id",
+						"genesyscloud_routing_queue."+queueResourceId, "id"),
+					resource.TestCheckResourceAttr("genesyscloud_outbound_campaign."+resourceId,
+						"dynamic_line_balancing_settings.0.enabled", "true"),
+					resource.TestCheckResourceAttr("genesyscloud_outbound_campaign."+resourceId,
+						"dynamic_line_balancing_settings.0.relative_weight", "15"),
 				),
 			},
 			{
@@ -944,6 +1128,7 @@ func generateOutboundCampaign(
 	queueId string,
 	siteId string,
 	abandonRate string,
+	maxCallsPerAgent string,
 	callableTimeSetId string,
 	callAnalysisResponseSetId string,
 	outboundLineCount string,
@@ -970,6 +1155,7 @@ resource "genesyscloud_outbound_campaign" "%s" {
 	queue_id                      = %s
 	site_id 					  = %s
 	abandon_rate                  = %s
+	max_calls_per_agent			  = %s
 	callable_time_set_id          = %s
 	call_analysis_response_set_id = %s
 	outbound_line_count           = %s
@@ -983,7 +1169,7 @@ resource "genesyscloud_outbound_campaign" "%s" {
 	contact_list_filter_ids       = [%s]
 	%s
 }
-`, resourceId, name, dialingMode, callerName, callerAddress, contactListId, campaignStatus, divisionId, scriptId, queueId, siteId, abandonRate, callableTimeSetId,
+`, resourceId, name, dialingMode, callerName, callerAddress, contactListId, campaignStatus, divisionId, scriptId, queueId, siteId, abandonRate, maxCallsPerAgent, callableTimeSetId,
 		callAnalysisResponseSetId, outboundLineCount, skipPreviewDisabled, previewTimeOutSeconds, alwaysRunning, noAnswerTimeout,
 		priority, strings.Join(dncListIds, ", "), strings.Join(ruleSetIds, ", "), strings.Join(contactListFilterIds, ", "),
 		strings.Join(nestedBlocks, "\n"))
@@ -995,6 +1181,15 @@ func generateDynamicContactQueueingSettingsBlock(sort string) string {
 		sort = %s
 	}
 	`, sort)
+}
+
+func generateDynamicLineBalancingSettingsBlock(enabled string, weight string) string {
+	return fmt.Sprintf(`
+	dynamic_line_balancing_settings {
+		enabled = %s
+		relative_weight = %s
+	}
+	`, enabled, weight)
 }
 
 func getPublishedScriptId() (string, error) {
