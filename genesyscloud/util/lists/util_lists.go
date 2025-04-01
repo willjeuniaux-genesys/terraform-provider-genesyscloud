@@ -26,9 +26,30 @@ func RemoveStringFromSlice(value string, slice []string) []string {
 	return s
 }
 
-func SubStringInSlice(a string, list []string) bool {
-	for _, b := range list {
+// SubStringInSlice checks if any string in the provided slice contains
+// the target string 'a' as a substring.
+// For example:
+//
+//	list = ["hello", "world"], a = "ell" returns true
+//	list = ["hello", "world"], a = "xyz" returns false
+func SubStringInSlice(a string, slice []string) bool {
+	for _, b := range slice {
 		if strings.Contains(b, a) {
+			return true
+		}
+	}
+	return false
+}
+
+// ContainsAnySubStringSlice checks if the target string 'a' contains
+// any of the strings in the provided list as substrings.
+// For example:
+//
+//	list = ["ell", "wor"], a = "hello" returns true
+//	list = ["xyz", "abc"], a = "hello" returns false
+func ContainsAnySubStringSlice(a string, slice []string) bool {
+	for _, b := range slice {
+		if strings.Contains(a, b) {
 			return true
 		}
 	}
@@ -109,6 +130,17 @@ func InterfaceListToStrings(interfaceList []interface{}) []string {
 		strs[i] = val.(string)
 	}
 	return strs
+}
+
+func BuildStringListFromSetInMap(m map[string]any, key string) []string {
+	var strList []string
+	if setVal, ok := m[key].(*schema.Set); ok {
+		listVal := setVal.List()
+		if len(listVal) > 0 {
+			strList = InterfaceListToStrings(listVal)
+		}
+	}
+	return strList
 }
 
 func BuildSdkStringList(d *schema.ResourceData, attrName string) *[]string {

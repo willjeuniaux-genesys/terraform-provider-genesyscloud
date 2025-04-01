@@ -17,13 +17,13 @@ resource_genesycloud_responsemanagement_response_schema.go holds four functions 
 3.  The datasource schema definitions for the responsemanagement_response datasource.
 4.  The resource exporter configuration for the responsemanagement_response exporter.
 */
-const resourceName = "genesyscloud_responsemanagement_response"
+const ResourceType = "genesyscloud_responsemanagement_response"
 
 // SetRegistrar registers all of the resources, datasources and exporters in the package
 func SetRegistrar(regInstance registrar.Registrar) {
-	regInstance.RegisterResource(resourceName, ResourceResponsemanagementResponse())
-	regInstance.RegisterDataSource(resourceName, DataSourceResponsemanagementResponse())
-	regInstance.RegisterExporter(resourceName, ResponsemanagementResponseExporter())
+	regInstance.RegisterResource(ResourceType, ResourceResponsemanagementResponse())
+	regInstance.RegisterDataSource(ResourceType, DataSourceResponsemanagementResponse())
+	regInstance.RegisterExporter(ResourceType, ResponsemanagementResponseExporter())
 }
 
 var (
@@ -143,7 +143,7 @@ func ResourceResponsemanagementResponse() *schema.Resource {
 				Description: `One or more libraries response is associated with. Changing the library IDs will result in the resource being recreated`,
 				Required:    true,
 				ForceNew:    true,
-				Type:        schema.TypeList,
+				Type:        schema.TypeSet,
 				Elem:        &schema.Schema{Type: schema.TypeString},
 			},
 			`texts`: {

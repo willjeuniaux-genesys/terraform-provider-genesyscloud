@@ -18,7 +18,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/mypurecloud/platform-client-sdk-go/v143/platformclientv2"
+	"github.com/mypurecloud/platform-client-sdk-go/v154/platformclientv2"
 )
 
 type agentUtilizationWithLabels struct {
@@ -28,20 +28,23 @@ type agentUtilizationWithLabels struct {
 }
 
 func GetAllUsers(ctx context.Context, sdkConfig *platformclientv2.Configuration) (resourceExporter.ResourceIDMetaMap, diag.Diagnostics) {
-	proxy := getUserProxy(sdkConfig)
+	proxy := GetUserProxy(sdkConfig)
 	resources := make(resourceExporter.ResourceIDMetaMap)
 
 	// Newly created resources often aren't returned unless there's a delay
 	time.Sleep(5 * time.Second)
 
-	users, proxyResponse, err := proxy.getAllUser(ctx)
+	users, proxyResponse, err := proxy.GetAllUser(ctx)
 	if err != nil {
-		return nil, util.BuildAPIDiagnosticError(resourceName, fmt.Sprintf("Failed to get page of users error: %s", err), proxyResponse)
+		return nil, util.BuildAPIDiagnosticError(ResourceType, fmt.Sprintf("Failed to get page of users error: %s", err), proxyResponse)
 	}
 
 	// Add resources to metamap
 	for _, user := range *users {
-		resources[*user.Id] = &resourceExporter.ResourceMeta{Name: *user.Email}
+		if user.Id == nil || user.Email == nil {
+			continue
+		}
+		resources[*user.Id] = &resourceExporter.ResourceMeta{BlockLabel: *user.Email}
 	}
 
 	return resources, nil
@@ -49,10 +52,9 @@ func GetAllUsers(ctx context.Context, sdkConfig *platformclientv2.Configuration)
 
 func createUser(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	sdkConfig := meta.(*provider.ProviderMeta).ClientConfig
-	proxy := getUserProxy(sdkConfig)
+	proxy := GetUserProxy(sdkConfig)
 
 	email := d.Get("email").(string)
-	password := d.Get("password").(string)
 	divisionID := d.Get("division_id").(string)
 
 	addresses, addrErr := buildSdkAddresses(d)
@@ -76,11 +78,7 @@ func createUser(ctx context.Context, d *schema.ResourceData, meta interface{}) d
 		Addresses:  addresses,
 	}
 
-	// Optional attributes that should not be empty strings
-	if password != "" {
-		createUser.Password = &password
-	}
-
+	// Optional attribute that should not be empty strings
 	if divisionID != "" {
 		createUser.DivisionId = &divisionID
 	}
@@ -100,7 +98,7 @@ func createUser(ctx context.Context, d *schema.ResourceData, meta interface{}) d
 				return restoreDeletedUser(ctx, d, meta, proxy)
 			}
 		}
-		return util.BuildAPIDiagnosticError(resourceName, fmt.Sprintf("Failed to create user %s error: %s", email, postErr), proxyPostResponse)
+		return util.BuildAPIDiagnosticError(ResourceType, fmt.Sprintf("Failed to create user %s error: %s", email, postErr), proxyPostResponse)
 	}
 
 	d.SetId(*userResponse.Id)
@@ -119,11 +117,11 @@ func createUser(ctx context.Context, d *schema.ResourceData, meta interface{}) d
 		})
 
 		if patchErr != nil {
-			return util.BuildAPIDiagnosticError(resourceName, fmt.Sprintf("Failed to update user %s error: %s", d.Id(), patchErr), proxyPatchResponse)
+			return util.BuildAPIDiagnosticError(ResourceType, fmt.Sprintf("Failed to update user %s error: %s", d.Id(), patchErr), proxyPatchResponse)
 		}
 	}
 
-	diagErr := executeAllUpdates(d, proxy, sdkConfig, false)
+	diagErr := executeAllUpdates(ctx, d, proxy, sdkConfig, false)
 	if diagErr != nil {
 		return diagErr
 	}
@@ -134,8 +132,8 @@ func createUser(ctx context.Context, d *schema.ResourceData, meta interface{}) d
 
 func readUser(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	sdkConfig := meta.(*provider.ProviderMeta).ClientConfig
-	proxy := getUserProxy(sdkConfig)
-	cc := consistency_checker.NewConsistencyCheck(ctx, d, meta, ResourceUser(), constants.DefaultConsistencyChecks, resourceName)
+	proxy := GetUserProxy(sdkConfig)
+	cc := consistency_checker.NewConsistencyCheck(ctx, d, meta, ResourceUser(), constants.ConsistencyChecks(), ResourceType)
 
 	log.Printf("Reading user %s", d.Id())
 	return util.WithRetriesForRead(ctx, d, func() *retry.RetryError {
@@ -152,9 +150,9 @@ func readUser(ctx context.Context, d *schema.ResourceData, meta interface{}) dia
 
 		if errGet != nil {
 			if util.IsStatus404(proxyResponse) {
-				return retry.RetryableError(util.BuildWithRetriesApiDiagnosticError(resourceName, fmt.Sprintf("Failed to read user %s | error: %s", d.Id(), errGet), proxyResponse))
+				return retry.RetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read user %s | error: %s", d.Id(), errGet), proxyResponse))
 			}
-			return retry.NonRetryableError(util.BuildWithRetriesApiDiagnosticError(resourceName, fmt.Sprintf("Failed to read user %s | error: %s", d.Id(), errGet), proxyResponse))
+			return retry.NonRetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read user %s | error: %s", d.Id(), errGet), proxyResponse))
 		}
 
 		// Required attributes
@@ -178,6 +176,14 @@ func readUser(ctx context.Context, d *schema.ResourceData, meta interface{}) dia
 		d.Set("certifications", flattenUserData(currentUser.Certifications))
 		d.Set("employer_info", flattenUserEmployerInfo(currentUser.EmployerInfo))
 
+		//Get attributes from Voicemail/Userpolicies resource
+		currentVoicemailUserpolicies, resp, err := proxy.getVoicemailUserpoliciesById(ctx, d.Id())
+		if err != nil {
+			return retry.RetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read voicemail userpolicies %s error: %s", d.Id(), err), resp))
+		}
+
+		_ = d.Set("voicemail_userpolicies", flattenVoicemailUserpolicies(d, currentVoicemailUserpolicies))
+
 		if diagErr := readUserRoutingUtilization(d, proxy); diagErr != nil {
 			return retry.NonRetryableError(fmt.Errorf("%v", diagErr))
 		}
@@ -191,7 +197,7 @@ func readUser(ctx context.Context, d *schema.ResourceData, meta interface{}) dia
 func updateUser(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 
 	sdkConfig := meta.(*provider.ProviderMeta).ClientConfig
-	proxy := getUserProxy(sdkConfig)
+	proxy := GetUserProxy(sdkConfig)
 
 	addresses, err := buildSdkAddresses(d)
 	if err != nil {
@@ -231,7 +237,7 @@ func updateUser(ctx context.Context, d *schema.ResourceData, meta interface{}) d
 		return diagErr
 	}
 
-	diagErr = executeAllUpdates(d, proxy, sdkConfig, true)
+	diagErr = executeAllUpdates(ctx, d, proxy, sdkConfig, true)
 	if diagErr != nil {
 		return diagErr
 	}
@@ -242,7 +248,7 @@ func updateUser(ctx context.Context, d *schema.ResourceData, meta interface{}) d
 
 func deleteUser(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	sdkConfig := meta.(*provider.ProviderMeta).ClientConfig
-	proxy := getUserProxy(sdkConfig)
+	proxy := GetUserProxy(sdkConfig)
 
 	email := d.Get("email").(string)
 
@@ -252,7 +258,7 @@ func deleteUser(ctx context.Context, d *schema.ResourceData, meta interface{}) d
 		_, proxyDelResponse, err := proxy.deleteUser(ctx, d.Id())
 		if err != nil {
 			time.Sleep(5 * time.Second)
-			return proxyDelResponse, util.BuildAPIDiagnosticError(resourceName, fmt.Sprintf("Failed to delete user %s error: %s", d.Id(), err), proxyDelResponse)
+			return proxyDelResponse, util.BuildAPIDiagnosticError(ResourceType, fmt.Sprintf("Failed to delete user %s error: %s", d.Id(), err), proxyDelResponse)
 		}
 		log.Printf("Deleted user %s", email)
 		return nil, nil

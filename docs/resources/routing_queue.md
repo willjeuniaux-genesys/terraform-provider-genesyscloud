@@ -11,15 +11,131 @@ Genesys Cloud Routing Queue
 ## API Usage
 The following Genesys Cloud APIs are used by this resource. Ensure your OAuth Client has been granted the necessary scopes and permissions to perform these operations:
 
-* [POST /api/v2/routing/queues](https://developer.mypurecloud.com/api/rest/v2/routing/#post-api-v2-routing-queues)
-* [GET /api/v2/routing/queues/{queueId}/members](https://developer.mypurecloud.com/api/rest/v2/routing/#get-api-v2-routing-queues--queueId--members)
-* [GET /api/v2/routing/queues/{queueId}](https://developer.mypurecloud.com/api/rest/v2/routing/#get-api-v2-routing-queues--queueId-)
-* [POST /api/v2/routing/queues/{queueId}/members](https://developer.mypurecloud.com/api/rest/v2/routing/#post-api-v2-routing-queues--queueId--members)
-* [PATCH /api/v2/routing/queues/{queueId}/members/{memberId}](https://developer.mypurecloud.com/api/rest/v2/routing/#patch-api-v2-routing-queues--queueId--members--memberId-)
-* [DELETE /api/v2/routing/queues/{queueId}](https://developer.mypurecloud.com/api/rest/v2/routing/#delete-api-v2-routing-queues--queueId-)
-* [GET /api/v2/routing/queues/{queueId}/wrapupcodes](https://developer.mypurecloud.com/api/rest/v2/routing/#get-api-v2-routing-queues--queueId--wrapupcodes)
-* [POST /api/v2/routing/queues/{queueId}/wrapupcodes](https://developer.mypurecloud.com/api/rest/v2/routing/#post-api-v2-routing-queues--queueId--wrapupcodes)
-* [DELETE /api/v2/routing/queues/{queueId}/wrapupcodes/{codeId}](https://developer.mypurecloud.com/api/rest/v2/routing/#delete-api-v2-routing-queues--queueId--wrapupcodes--codeId-)
+- [POST /api/v2/routing/queues](https://developer.mypurecloud.com/api/rest/v2/routing/#post-api-v2-routing-queues)
+- [GET /api/v2/routing/queues/{queueId}/members](https://developer.mypurecloud.com/api/rest/v2/routing/#get-api-v2-routing-queues--queueId--members)
+- [GET /api/v2/routing/queues/{queueId}](https://developer.mypurecloud.com/api/rest/v2/routing/#get-api-v2-routing-queues--queueId-)
+- [POST /api/v2/routing/queues/{queueId}/members](https://developer.mypurecloud.com/api/rest/v2/routing/#post-api-v2-routing-queues--queueId--members)
+- [PATCH /api/v2/routing/queues/{queueId}/members/{memberId}](https://developer.mypurecloud.com/api/rest/v2/routing/#patch-api-v2-routing-queues--queueId--members--memberId-)
+- [DELETE /api/v2/routing/queues/{queueId}](https://developer.mypurecloud.com/api/rest/v2/routing/#delete-api-v2-routing-queues--queueId-)
+- [GET /api/v2/routing/queues/{queueId}/wrapupcodes](https://developer.mypurecloud.com/api/rest/v2/routing/#get-api-v2-routing-queues--queueId--wrapupcodes)
+- [POST /api/v2/routing/queues/{queueId}/wrapupcodes](https://developer.mypurecloud.com/api/rest/v2/routing/#post-api-v2-routing-queues--queueId--wrapupcodes)
+- [DELETE /api/v2/routing/queues/{queueId}/wrapupcodes/{codeId}](https://developer.mypurecloud.com/api/rest/v2/routing/#delete-api-v2-routing-queues--queueId--wrapupcodes--codeId-)
+
+## Schema Migration: Routing Queue V1 to V2
+
+### Migration Details
+
+As of v1.61.0 of the provider, the Genesys Cloud Routing Queue resource type includes a schema migration that removes several vestigial attributes from the media settings blocks.
+
+#### Removed Attributes
+
+The following attributes have been removed from the following media settings blocks: `media_settings_call`, `media_settings_email`, `media_settings_chat`, and `media_settings_message`:
+
+- `mode`
+- `enable_auto_dial_and_end`
+- `auto_dial_delay_seconds`
+- `auto_end_delay_seconds`
+
+#### Migration Process
+
+The migration of the state will automatically occur when running terraform init with version 1.61.0 or later of the provider. The migration process:
+
+- Preserves all other existing attributes and their values
+- Removes the deprecated attributes listed above from the state
+- Maintains the functionality of the queue resource
+-
+
+#### Example State Changes
+
+Before migration:
+
+```hcl
+resource "genesyscloud_routing_queue" "example" {
+  name = "Example Queue"
+  media_settings_callback {
+    enable_auto_answer        = false
+    mode                      = "AgentFirst"
+    alerting_timeout_sec      = 30
+    auto_end_delay_seconds    = 300
+    enable_auto_dial_and_end  = false
+    service_level_duration_ms = 20000
+    service_level_percentage  = 0.8
+    auto_dial_delay_seconds   = 300
+  }
+  media_settings_chat {
+    enable_auto_answer        = false
+    enable_auto_dial_and_end  = false
+    service_level_duration_ms = 20000
+    service_level_percentage  = 0.8
+    alerting_timeout_sec      = 30
+  }
+  media_settings_message {
+    service_level_duration_ms = 20000
+    service_level_percentage  = 0.8
+    alerting_timeout_sec      = 30
+    enable_auto_answer        = false
+    enable_auto_dial_and_end  = false
+  }
+  media_settings_call {
+    service_level_percentage  = 0.8
+    alerting_timeout_sec      = 8
+    enable_auto_answer        = false
+    enable_auto_dial_and_end  = false
+    service_level_duration_ms = 20000
+  }
+  media_settings_email {
+    enable_auto_dial_and_end  = false
+    service_level_duration_ms = 86400000
+    service_level_percentage  = 0.8
+    alerting_timeout_sec      = 300
+    enable_auto_answer        = false
+  }
+  ...
+}
+```
+
+After migration:
+
+```hcl
+resource "genesyscloud_routing_queue" "example" {
+  name = "Example Queue"
+  media_settings_callback {
+    enable_auto_answer        = false
+    mode                      = "AgentFirst"
+    alerting_timeout_sec      = 30
+    auto_end_delay_seconds    = 300
+    enable_auto_dial_and_end  = false
+    service_level_duration_ms = 20000
+    service_level_percentage  = 0.8
+    auto_dial_delay_seconds   = 300
+  }
+  media_settings_chat {
+    service_level_duration_ms = 20000
+    service_level_percentage  = 0.8
+    alerting_timeout_sec      = 30
+  }
+  media_settings_message {
+    service_level_duration_ms = 20000
+    service_level_percentage  = 0.8
+    alerting_timeout_sec      = 30
+  }
+  media_settings_call {
+    service_level_percentage  = 0.8
+    alerting_timeout_sec      = 8
+    service_level_duration_ms = 20000
+  }
+  media_settings_email {
+    service_level_duration_ms = 86400000
+    service_level_percentage  = 0.8
+    alerting_timeout_sec      = 300
+  }
+}
+```
+
+#### Action Required
+
+The state will be automatically upgraded when you run terraform init with version 1.60.0 or later of the provider. After this, you will have to update your config to remove these attributes from the `media_settings_call`, `media_settings_email`, `media_settings_chat`, and `media_settings_message` config blocks as they are no longer supported.
+
 
 ## Example Usage
 
@@ -90,6 +206,7 @@ resource "genesyscloud_routing_queue" "example_queue" {
 - `bullseye_rings` (Block List, Max: 5) The bullseye ring settings for the queue. (see [below for nested schema](#nestedblock--bullseye_rings))
 - `calling_party_name` (String) The name to use for caller identification for outbound calls from this queue.
 - `calling_party_number` (String) The phone number to use for caller identification for outbound calls from this queue.
+- `canned_response_libraries` (Block List, Max: 1) Agent Owned Routing. (see [below for nested schema](#nestedblock--canned_response_libraries))
 - `conditional_group_routing_rules` (Block List, Max: 5) The Conditional Group Routing settings for the queue. **Note**: conditional_group_routing_rules is deprecated in genesyscloud_routing_queue. CGR is now a standalone resource, please set ENABLE_STANDALONE_CGR in your environment variables to enable and use genesyscloud_routing_queue_conditional_group_routing (see [below for nested schema](#nestedblock--conditional_group_routing_rules))
 - `default_script_ids` (Map of String) The default script IDs for each communication type. Communication types: (CALL | CALLBACK | CHAT | COBROWSE | EMAIL | MESSAGE | SOCIAL_EXPRESSION | VIDEO | SCREENSHARE)
 - `description` (String) Queue description.
@@ -160,12 +277,21 @@ Required:
 
 
 
+<a id="nestedblock--canned_response_libraries"></a>
+### Nested Schema for `canned_response_libraries`
+
+Optional:
+
+- `library_ids` (List of String) Set of canned response library IDs associated with the queue. Populate this field only when the mode is set to SelectedOnly.
+- `mode` (String) The association mode of canned response libraries to queue.Valid values: All, SelectedOnly, None.
+
+
 <a id="nestedblock--conditional_group_routing_rules"></a>
 ### Nested Schema for `conditional_group_routing_rules`
 
 Required:
 
-- `groups` (Block List, Min: 1) The group(s) to activate if the rule evaluates as true. (see [below for nested schema](#nestedblock--conditional_group_routing_rules--groups))
+- `groups` (Block Set, Min: 1) The group(s) to activate if the rule evaluates as true. (see [below for nested schema](#nestedblock--conditional_group_routing_rules--groups))
 
 Optional:
 
@@ -204,12 +330,19 @@ Optional:
 Optional:
 
 - `alerting_timeout_sec` (Number) Alerting timeout in seconds. Must be >= 7
-- `auto_dial_delay_seconds` (Number) Auto Dial Delay Seconds.
-- `auto_end_delay_seconds` (Number) Auto End Delay Seconds.
 - `enable_auto_answer` (Boolean) Auto-Answer for digital channels(Email, Message) Defaults to `false`.
-- `enable_auto_dial_and_end` (Boolean) Auto Dail and End Defaults to `false`.
 - `service_level_duration_ms` (Number) Service Level target in milliseconds. Must be >= 1000
 - `service_level_percentage` (Number) The desired Service Level. A float value between 0 and 1.
+- `sub_type_settings` (Block List) Auto-Answer for digital channels(Email, Message) (see [below for nested schema](#nestedblock--media_settings_call--sub_type_settings))
+
+<a id="nestedblock--media_settings_call--sub_type_settings"></a>
+### Nested Schema for `media_settings_call.sub_type_settings`
+
+Required:
+
+- `enable_auto_answer` (Boolean) Indicates if auto-answer is enabled for the given media type or subtype (default is false). Subtype settings take precedence over media type settings.
+- `media_type` (String) The name of the social media company
+
 
 
 <a id="nestedblock--media_settings_callback"></a>
@@ -221,9 +354,20 @@ Optional:
 - `auto_dial_delay_seconds` (Number) Auto Dial Delay Seconds.
 - `auto_end_delay_seconds` (Number) Auto End Delay Seconds.
 - `enable_auto_answer` (Boolean) Auto-Answer for digital channels(Email, Message) Defaults to `false`.
-- `enable_auto_dial_and_end` (Boolean) Auto Dail and End Defaults to `false`.
+- `enable_auto_dial_and_end` (Boolean) Auto Dial and End Defaults to `false`.
+- `mode` (String) The mode callbacks will use on this queue.
 - `service_level_duration_ms` (Number) Service Level target in milliseconds. Must be >= 1000
 - `service_level_percentage` (Number) The desired Service Level. A float value between 0 and 1.
+- `sub_type_settings` (Block List) Auto-Answer for digital channels(Email, Message) (see [below for nested schema](#nestedblock--media_settings_callback--sub_type_settings))
+
+<a id="nestedblock--media_settings_callback--sub_type_settings"></a>
+### Nested Schema for `media_settings_callback.sub_type_settings`
+
+Required:
+
+- `enable_auto_answer` (Boolean) Indicates if auto-answer is enabled for the given media type or subtype (default is false). Subtype settings take precedence over media type settings.
+- `media_type` (String) The name of the social media company
+
 
 
 <a id="nestedblock--media_settings_chat"></a>
@@ -232,12 +376,19 @@ Optional:
 Optional:
 
 - `alerting_timeout_sec` (Number) Alerting timeout in seconds. Must be >= 7
-- `auto_dial_delay_seconds` (Number) Auto Dial Delay Seconds.
-- `auto_end_delay_seconds` (Number) Auto End Delay Seconds.
 - `enable_auto_answer` (Boolean) Auto-Answer for digital channels(Email, Message) Defaults to `false`.
-- `enable_auto_dial_and_end` (Boolean) Auto Dail and End Defaults to `false`.
 - `service_level_duration_ms` (Number) Service Level target in milliseconds. Must be >= 1000
 - `service_level_percentage` (Number) The desired Service Level. A float value between 0 and 1.
+- `sub_type_settings` (Block List) Auto-Answer for digital channels(Email, Message) (see [below for nested schema](#nestedblock--media_settings_chat--sub_type_settings))
+
+<a id="nestedblock--media_settings_chat--sub_type_settings"></a>
+### Nested Schema for `media_settings_chat.sub_type_settings`
+
+Required:
+
+- `enable_auto_answer` (Boolean) Indicates if auto-answer is enabled for the given media type or subtype (default is false). Subtype settings take precedence over media type settings.
+- `media_type` (String) The name of the social media company
+
 
 
 <a id="nestedblock--media_settings_email"></a>
@@ -246,12 +397,19 @@ Optional:
 Optional:
 
 - `alerting_timeout_sec` (Number) Alerting timeout in seconds. Must be >= 7
-- `auto_dial_delay_seconds` (Number) Auto Dial Delay Seconds.
-- `auto_end_delay_seconds` (Number) Auto End Delay Seconds.
 - `enable_auto_answer` (Boolean) Auto-Answer for digital channels(Email, Message) Defaults to `false`.
-- `enable_auto_dial_and_end` (Boolean) Auto Dail and End Defaults to `false`.
 - `service_level_duration_ms` (Number) Service Level target in milliseconds. Must be >= 1000
 - `service_level_percentage` (Number) The desired Service Level. A float value between 0 and 1.
+- `sub_type_settings` (Block List) Auto-Answer for digital channels(Email, Message) (see [below for nested schema](#nestedblock--media_settings_email--sub_type_settings))
+
+<a id="nestedblock--media_settings_email--sub_type_settings"></a>
+### Nested Schema for `media_settings_email.sub_type_settings`
+
+Required:
+
+- `enable_auto_answer` (Boolean) Indicates if auto-answer is enabled for the given media type or subtype (default is false). Subtype settings take precedence over media type settings.
+- `media_type` (String) The name of the social media company
+
 
 
 <a id="nestedblock--media_settings_message"></a>
@@ -260,12 +418,19 @@ Optional:
 Optional:
 
 - `alerting_timeout_sec` (Number) Alerting timeout in seconds. Must be >= 7
-- `auto_dial_delay_seconds` (Number) Auto Dial Delay Seconds.
-- `auto_end_delay_seconds` (Number) Auto End Delay Seconds.
 - `enable_auto_answer` (Boolean) Auto-Answer for digital channels(Email, Message) Defaults to `false`.
-- `enable_auto_dial_and_end` (Boolean) Auto Dail and End Defaults to `false`.
 - `service_level_duration_ms` (Number) Service Level target in milliseconds. Must be >= 1000
 - `service_level_percentage` (Number) The desired Service Level. A float value between 0 and 1.
+- `sub_type_settings` (Block List) Auto-Answer for digital channels(Email, Message) (see [below for nested schema](#nestedblock--media_settings_message--sub_type_settings))
+
+<a id="nestedblock--media_settings_message--sub_type_settings"></a>
+### Nested Schema for `media_settings_message.sub_type_settings`
+
+Required:
+
+- `enable_auto_answer` (Boolean) Indicates if auto-answer is enabled for the given media type or subtype (default is false). Subtype settings take precedence over media type settings.
+- `media_type` (String) The name of the social media company
+
 
 
 <a id="nestedatt--members"></a>

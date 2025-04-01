@@ -11,7 +11,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 
-	"github.com/mypurecloud/platform-client-sdk-go/v143/platformclientv2"
+	"github.com/mypurecloud/platform-client-sdk-go/v154/platformclientv2"
 )
 
 /*
@@ -108,7 +108,7 @@ func (p *outboundCampaignProxy) turnOffCampaign(ctx context.Context, campaignId 
 	log.Printf("Reading Outbound Campaign %s", campaignId)
 	outboundCampaign, resp, getErr := p.getOutboundCampaignById(ctx, campaignId)
 	if getErr != nil {
-		return util.BuildAPIDiagnosticError(resourceName, fmt.Sprintf("Failed to read Outbound Campaign %s: %s", campaignId, getErr), resp)
+		return util.BuildAPIDiagnosticError(ResourceType, fmt.Sprintf("Failed to read Outbound Campaign %s: %s", campaignId, getErr), resp)
 	}
 	log.Printf("Read Outbound Campaign %s", campaignId)
 
@@ -122,12 +122,12 @@ func (p *outboundCampaignProxy) turnOffCampaign(ctx context.Context, campaignId 
 		log.Printf("Reading Outbound Campaign %s to ensure campaign_status is 'off'", campaignId)
 		outboundCampaign, resp, getErr := p.getOutboundCampaignById(ctx, campaignId)
 		if getErr != nil {
-			return retry.NonRetryableError(util.BuildWithRetriesApiDiagnosticError(resourceName, fmt.Sprintf("failed to read Outbound Campaign %s | error: %s", campaignId, getErr), resp))
+			return retry.NonRetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("failed to read Outbound Campaign %s | error: %s", campaignId, getErr), resp))
 		}
 		log.Printf("Read Outbound Campaign %s", campaignId)
 		if *outboundCampaign.CampaignStatus == "on" {
 			time.Sleep(5 * time.Second)
-			return retry.RetryableError(util.BuildWithRetriesApiDiagnosticError(resourceName, fmt.Sprintf("campaign %s campaign_status is still %s", campaignId, *outboundCampaign.CampaignStatus), resp))
+			return retry.RetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("campaign %s campaign_status is still %s", campaignId, *outboundCampaign.CampaignStatus), resp))
 		}
 		// Success
 		return nil
@@ -136,7 +136,7 @@ func (p *outboundCampaignProxy) turnOffCampaign(ctx context.Context, campaignId 
 
 // createOutboundCampaignFn is an implementation function for creating a Genesys Cloud outbound campaign
 func createOutboundCampaignFn(_ context.Context, p *outboundCampaignProxy, outboundCampaign *platformclientv2.Campaign) (*platformclientv2.Campaign, *platformclientv2.APIResponse, error) {
-	campaign, resp, err := p.outboundApi.PostOutboundCampaigns(*outboundCampaign)
+	campaign, resp, err := p.outboundApi.PostOutboundCampaigns(*outboundCampaign, false)
 	if err != nil {
 		return nil, resp, fmt.Errorf("failed to create campaign %s", err)
 	}
@@ -215,7 +215,7 @@ func updateOutboundCampaignFn(ctx context.Context, p *outboundCampaignProxy, id 
 	}
 
 	outboundCampaign.Version = campaign.Version
-	outboundCampaign, resp, err = p.outboundApi.PutOutboundCampaign(id, *outboundCampaign)
+	outboundCampaign, resp, err = p.outboundApi.PutOutboundCampaign(id, *outboundCampaign, false)
 	if err != nil {
 		return nil, resp, fmt.Errorf("failed to update campaign: %s", err)
 	}

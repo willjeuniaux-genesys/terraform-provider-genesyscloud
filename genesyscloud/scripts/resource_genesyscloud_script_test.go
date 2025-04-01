@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"path/filepath"
 	"terraform-provider-genesyscloud/genesyscloud/provider"
 	"terraform-provider-genesyscloud/genesyscloud/util"
 	"terraform-provider-genesyscloud/genesyscloud/util/testrunner"
@@ -13,25 +12,19 @@ import (
 	"github.com/google/uuid"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
-	"github.com/mypurecloud/platform-client-sdk-go/v143/platformclientv2"
+	"github.com/mypurecloud/platform-client-sdk-go/v154/platformclientv2"
 )
 
 /*
    Testcases for the resources schema
 */
 
-func getTestDataPath(elem ...string) string {
-	basePath := filepath.Join("..", "..", "test", "data")
-	subPath := filepath.Join(elem...)
-	return filepath.Join(basePath, subPath)
-}
-
 func TestAccResourceScriptBasic(t *testing.T) {
 	var (
-		resourceId    = "script"
+		resourceLabel = "script"
 		name          = "testscriptname" + uuid.NewString()
 		nameUpdated   = "testscriptname" + uuid.NewString()
-		filePath      = getTestDataPath("resource", resourceName, "test_script.json")
+		filePath      = testrunner.GetTestDataPath("resource", ResourceType, "test_script.json")
 		substitutions = make(map[string]string)
 	)
 
@@ -41,34 +34,34 @@ func TestAccResourceScriptBasic(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config: generateScriptResource(
-					resourceId,
+					resourceLabel,
 					name,
 					filePath,
 					util.GenerateSubstitutionsMap(substitutions),
 				),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr(resourceName+"."+resourceId, "script_name", name),
-					resource.TestCheckResourceAttr(resourceName+"."+resourceId, "filepath", filePath),
-					validateScriptPublished(resourceName+"."+resourceId),
+					resource.TestCheckResourceAttr(ResourceType+"."+resourceLabel, "script_name", name),
+					resource.TestCheckResourceAttr(ResourceType+"."+resourceLabel, "filepath", filePath),
+					validateScriptPublished(ResourceType+"."+resourceLabel),
 				),
 			},
 			// Update
 			{
 				Config: generateScriptResource(
-					resourceId,
+					resourceLabel,
 					nameUpdated,
 					filePath,
 					util.GenerateSubstitutionsMap(substitutions),
 				),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr(resourceName+"."+resourceId, "script_name", nameUpdated),
-					resource.TestCheckResourceAttr(resourceName+"."+resourceId, "filepath", filePath),
-					validateScriptPublished(resourceName+"."+resourceId),
+					resource.TestCheckResourceAttr(ResourceType+"."+resourceLabel, "script_name", nameUpdated),
+					resource.TestCheckResourceAttr(ResourceType+"."+resourceLabel, "filepath", filePath),
+					validateScriptPublished(ResourceType+"."+resourceLabel),
 				),
 			},
 			{
 				// Import/Read
-				ResourceName:      resourceName + "." + resourceId,
+				ResourceName:      ResourceType + "." + resourceLabel,
 				ImportState:       true,
 				ImportStateVerify: true,
 				ImportStateVerifyIgnore: []string{
@@ -84,9 +77,9 @@ func TestAccResourceScriptBasic(t *testing.T) {
 
 func TestAccResourceScriptUpdate(t *testing.T) {
 	var (
-		resourceId          = "script-subs"
+		resourceLabel       = "script-subs"
 		name                = "testscriptname" + uuid.NewString()
-		filePath            = getTestDataPath("resource", resourceName, "test_script.json")
+		filePath            = testrunner.GetTestDataPath("resource", ResourceType, "test_script.json")
 		substitutions       = make(map[string]string)
 		substitutionsUpdate = make(map[string]string)
 
@@ -103,36 +96,36 @@ func TestAccResourceScriptUpdate(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config: generateScriptResource(
-					resourceId,
+					resourceLabel,
 					name,
 					filePath,
 					util.GenerateSubstitutionsMap(substitutions),
 				),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr(resourceName+"."+resourceId, "script_name", name),
-					resource.TestCheckResourceAttr(resourceName+"."+resourceId, "filepath", filePath),
-					validateScriptPublished(resourceName+"."+resourceId),
-					getScriptId(resourceName+"."+resourceId, &scriptIdAfterCreate),
+					resource.TestCheckResourceAttr(ResourceType+"."+resourceLabel, "script_name", name),
+					resource.TestCheckResourceAttr(ResourceType+"."+resourceLabel, "filepath", filePath),
+					validateScriptPublished(ResourceType+"."+resourceLabel),
+					getScriptId(ResourceType+"."+resourceLabel, &scriptIdAfterCreate),
 				),
 			},
 			// Update
 			{
 				Config: generateScriptResource(
-					resourceId,
+					resourceLabel,
 					name,
 					filePath,
 					util.GenerateSubstitutionsMap(substitutionsUpdate),
 				),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr(resourceName+"."+resourceId, "script_name", name),
-					resource.TestCheckResourceAttr(resourceName+"."+resourceId, "filepath", filePath),
-					validateScriptPublished(resourceName+"."+resourceId),
-					getScriptId(resourceName+"."+resourceId, &scriptIdAfterUpdate),
+					resource.TestCheckResourceAttr(ResourceType+"."+resourceLabel, "script_name", name),
+					resource.TestCheckResourceAttr(ResourceType+"."+resourceLabel, "filepath", filePath),
+					validateScriptPublished(ResourceType+"."+resourceLabel),
+					getScriptId(ResourceType+"."+resourceLabel, &scriptIdAfterUpdate),
 				),
 			},
 			{
 				// Import/Read
-				ResourceName:      resourceName + "." + resourceId,
+				ResourceName:      ResourceType + "." + resourceLabel,
 				ImportState:       true,
 				ImportStateVerify: true,
 				ImportStateVerifyIgnore: []string{
@@ -151,34 +144,32 @@ func TestAccResourceScriptUpdate(t *testing.T) {
 }
 
 // getScriptId retrieves the script GUID from the state
-func getScriptId(scriptResourceName string, id *string) resource.TestCheckFunc {
+func getScriptId(scriptResourcePath string, id *string) resource.TestCheckFunc {
 	return func(state *terraform.State) error {
-		scriptResource, ok := state.RootModule().Resources[scriptResourceName]
+		scriptResource, ok := state.RootModule().Resources[scriptResourcePath]
 		if !ok {
-			return fmt.Errorf("failed to find script %s in state", scriptResourceName)
+			return fmt.Errorf("failed to find script %s in state", scriptResourcePath)
 		}
 		*id = scriptResource.Primary.ID
 		return nil
 	}
 }
 
-func generateScriptResource(resourceId, scriptName, filePath, substitutions string) string {
-	fullyQualifiedPath, _ := testrunner.NormalizePath(filePath)
-	normalizeFilePath := testrunner.NormalizeSlash(filePath)
+func generateScriptResource(resourceLabel, scriptName, filePath, substitutions string) string {
 	return fmt.Sprintf(`
 resource "%s" "%s" {
 	script_name       = "%s"
 	filepath          = "%s"
 	file_content_hash = filesha256("%s")
 	%s
-}	
-	`, resourceName, resourceId, scriptName, normalizeFilePath, fullyQualifiedPath, substitutions)
+}
+	`, ResourceType, resourceLabel, scriptName, filePath, filePath, substitutions)
 }
 
 func testVerifyScriptDestroyed(state *terraform.State) error {
 	scriptsAPI := platformclientv2.NewScriptsApi()
 	for _, rs := range state.RootModule().Resources {
-		if rs.Type != resourceName {
+		if rs.Type != ResourceType {
 			continue
 		}
 
@@ -199,11 +190,11 @@ func testVerifyScriptDestroyed(state *terraform.State) error {
 }
 
 // validateScriptPublished checks to see if the script has been published after it was created
-func validateScriptPublished(scriptResourceName string) resource.TestCheckFunc {
+func validateScriptPublished(scriptResourcePath string) resource.TestCheckFunc {
 	return func(state *terraform.State) error {
-		scriptResource, ok := state.RootModule().Resources[scriptResourceName]
+		scriptResource, ok := state.RootModule().Resources[scriptResourcePath]
 		if !ok {
-			return fmt.Errorf("Failed to find script %s in state", scriptResourceName)
+			return fmt.Errorf("Failed to find script %s in state", scriptResourcePath)
 		}
 
 		scriptID := scriptResource.Primary.ID

@@ -12,13 +12,13 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
 
-const resourceName = "genesyscloud_user"
+const ResourceType = "genesyscloud_user"
 
 // SetRegistrar registers all the resources and exporters in the package
 func SetRegistrar(l registrar.Registrar) {
-	l.RegisterDataSource(resourceName, DataSourceUser())
-	l.RegisterResource(resourceName, ResourceUser())
-	l.RegisterExporter(resourceName, UserExporter())
+	l.RegisterDataSource(ResourceType, DataSourceUser())
+	l.RegisterResource(ResourceType, ResourceUser())
+	l.RegisterExporter(ResourceType, UserExporter())
 }
 
 var (
@@ -156,6 +156,21 @@ var (
 				Description: "Optional description on the user's location.",
 				Type:        schema.TypeString,
 				Optional:    true,
+			},
+		},
+	}
+	voicemailUserpoliciesResource = &schema.Resource{
+		Schema: map[string]*schema.Schema{
+			"alert_timeout_seconds": {
+				Description: "The number of seconds to ring the user's phone before a call is transferred to voicemail.",
+				Type:        schema.TypeInt,
+				Optional:    true,
+			},
+			"send_email_notifications": {
+				Description: "Whether email notifications are sent to the user when a new voicemail is received.",
+				Type:        schema.TypeBool,
+				Optional:    true,
+				Computed:    true,
 			},
 		},
 	}
@@ -388,6 +403,14 @@ func ResourceUser() *schema.Resource {
 					},
 				},
 			},
+			"voicemail_userpolicies": {
+				Description: "User's voicemail policies. If not set, default user policies will be applied.",
+				Type:        schema.TypeList,
+				MaxItems:    1,
+				Optional:    true,
+				Computed:    true,
+				Elem:        voicemailUserpoliciesResource,
+			},
 		},
 	}
 }
@@ -415,17 +438,19 @@ func UserExporter() *resourceExporter.ResourceExporter {
 	return &resourceExporter.ResourceExporter{
 		GetResourcesFunc: provider.GetAllWithPooledClient(GetAllUsers),
 		RefAttrs: map[string]*resourceExporter.RefAttrSettings{
-			"manager":                       {RefType: resourceName},
+			"manager":                       {RefType: ResourceType},
 			"division_id":                   {RefType: "genesyscloud_auth_division"},
 			"routing_skills.skill_id":       {RefType: "genesyscloud_routing_skill"},
 			"routing_languages.language_id": {RefType: "genesyscloud_routing_language"},
 			"locations.location_id":         {RefType: "genesyscloud_location"},
 		},
 		RemoveIfMissing: map[string][]string{
-			"routing_skills":    {"skill_id"},
-			"routing_languages": {"language_id"},
-			"locations":         {"location_id"},
+			"routing_skills":         {"skill_id"},
+			"routing_languages":      {"language_id"},
+			"locations":              {"location_id"},
+			"voicemail_userpolicies": {"alert_timeout_seconds"},
 		},
-		AllowZeroValues: []string{"routing_skills.proficiency", "routing_languages.proficiency"},
+		AllowEmptyArrays: []string{"routing_skills", "routing_languages"},
+		AllowZeroValues:  []string{"routing_skills.proficiency", "routing_languages.proficiency"},
 	}
 }

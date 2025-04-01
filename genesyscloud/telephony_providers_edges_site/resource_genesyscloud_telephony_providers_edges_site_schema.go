@@ -1,7 +1,6 @@
 package telephony_providers_edges_site
 
 import (
-	"fmt"
 	"terraform-provider-genesyscloud/genesyscloud/provider"
 	resourceExporter "terraform-provider-genesyscloud/genesyscloud/resource_exporter"
 	registrar "terraform-provider-genesyscloud/genesyscloud/resource_register"
@@ -9,7 +8,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
-	"github.com/mypurecloud/platform-client-sdk-go/v143/platformclientv2"
+	"github.com/mypurecloud/platform-client-sdk-go/v154/platformclientv2"
 )
 
 /*
@@ -20,7 +19,7 @@ resource_genesyscloud_telephony_providers_edges_site_schema.go should hold four 
 3.  The datasource schema definitions for the telephony_providers_edges_site datasource.
 4.  The resource exporter configuration for the telephony_providers_edges_site exporter.
 */
-const resourceName = "genesyscloud_telephony_providers_edges_site"
+const ResourceType = "genesyscloud_telephony_providers_edges_site"
 
 // used in sdk authorization for tests
 var (
@@ -73,9 +72,9 @@ var (
 
 // SetRegistrar registers all of the resources, datasources and exporters in the package
 func SetRegistrar(l registrar.Registrar) {
-	l.RegisterDataSource(resourceName, DataSourceSite())
-	l.RegisterResource(resourceName, ResourceSite())
-	l.RegisterExporter(resourceName, SiteExporter())
+	l.RegisterDataSource(ResourceType, DataSourceSite())
+	l.RegisterResource(ResourceType, ResourceSite())
+	l.RegisterExporter(ResourceType, SiteExporter())
 }
 
 // ResourceSite registers the genesyscloud_telephony_providers_edges_site resource with Terraform
@@ -181,7 +180,15 @@ func ResourceSite() *schema.Resource {
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
 		},
-		SchemaVersion: 1,
+		SchemaVersion: 2,
+		StateUpgraders: []schema.StateUpgrader{
+			// Upgrade state from outbound_routes as a site attribute to it's own dedicated resource
+			{
+				Type:    resourceSiteResourceV1().CoreConfigSchema().ImpliedType(),
+				Upgrade: resourceSiteUpgradeV1ToV2,
+				Version: 1,
+			},
+		},
 		Schema: map[string]*schema.Schema{
 			"name": {
 				Description: "The name of the entity.",
@@ -243,15 +250,6 @@ func ResourceSite() *schema.Resource {
 				Computed:    true,
 				Elem:        numberPlansSchema,
 			},
-			"outbound_routes": {
-				Description: "Outbound Routes for the site. The default outbound route will be deleted if routes are specified",
-				Type:        schema.TypeSet,
-				Optional:    true,
-				Computed:    true,
-				ConfigMode:  schema.SchemaConfigModeAttr,
-				Elem:        outboundRouteSchema,
-				Deprecated:  fmt.Sprintf("The outbound routes property is deprecated in %s, please use independent outbound routes resource instead, genesyscloud_telephony_providers_edges_site_outbound_route", resourceName),
-			},
 			"primary_sites": {
 				Description: `Used for primary phone edge assignment on physical edges only.  List of primary sites the phones can be assigned to. If no primary_sites are defined, the site id for this site will be used as the primary site id.`,
 				Optional:    true,
@@ -272,6 +270,13 @@ func ResourceSite() *schema.Resource {
 				Default:     false,
 				Type:        schema.TypeBool,
 			},
+			"managed": {
+				Description: "Is this site managed by Genesys Cloud",
+				Type:        schema.TypeBool,
+				Optional:    false,
+				Required:    false,
+				Computed:    true,
+			},
 		},
 		CustomizeDiff: customizeSiteDiff,
 	}
@@ -289,6 +294,10 @@ func SiteExporter() *resourceExporter.ResourceExporter {
 		},
 		CustomValidateExports: map[string][]string{
 			"rrule": {"edge_auto_update_config.rrule"},
+		},
+		ExportAsDataFunc: shouldExportManagedSitesAsData,
+		CustomAttributeResolver: map[string]*resourceExporter.RefAttrCustomResolver{
+			"number_plans": {ResolverFunc: siteNumberPlansExporterResolver},
 		},
 	}
 }

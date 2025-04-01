@@ -2,8 +2,10 @@ package outbound_campaign
 
 import (
 	"fmt"
+	"path/filepath"
 	"terraform-provider-genesyscloud/genesyscloud/provider"
 	"terraform-provider-genesyscloud/genesyscloud/util"
+	"terraform-provider-genesyscloud/genesyscloud/util/testrunner"
 	"testing"
 
 	authDivision "terraform-provider-genesyscloud/genesyscloud/auth_division"
@@ -15,11 +17,11 @@ import (
 
 func TestAccDataSourceOutboundCampaign(t *testing.T) {
 	var (
-		resourceId           = "campaign"
+		resourceLabel        = "campaign"
 		campaignName         = "Test Campaign " + uuid.NewString()
-		dataSourceId         = "campaign_data"
-		outboundFlowFilePath = "../../examples/resources/genesyscloud_flow/outboundcall_flow_example.yaml"
-		divResourceId        = "test-outbound-campaign-division"
+		dataSourceLabel      = "campaign_data"
+		outboundFlowFilePath = filepath.Join(testrunner.RootDir, "examples/resources/genesyscloud_flow/outboundcall_flow_example.yaml")
+		divResourceLabel     = "test-outbound-campaign-division"
 		divName              = "terraform-" + uuid.NewString()
 	)
 
@@ -34,9 +36,9 @@ func TestAccDataSourceOutboundCampaign(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config: `data "genesyscloud_auth_division_home" "home" {}` + "\n" +
-					authDivision.GenerateAuthDivisionBasic(divResourceId, divName) +
+					authDivision.GenerateAuthDivisionBasic(divResourceLabel, divName) +
 					GenerateOutboundCampaignBasic(
-						resourceId,
+						resourceLabel,
 						campaignName,
 						"contact_list",
 						"site",
@@ -49,26 +51,26 @@ func TestAccDataSourceOutboundCampaign(t *testing.T) {
 						"${data.genesyscloud_auth_division_home.home.name}",
 						"data-campaign-test-location",
 						"data-campaign-test-wrapupcode",
-						divResourceId,
+						divResourceLabel,
 					) + generateOutboundCampaignDataSource(
-					dataSourceId,
+					dataSourceLabel,
 					campaignName,
-					"genesyscloud_outbound_campaign."+resourceId,
+					"genesyscloud_outbound_campaign."+resourceLabel,
 				),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttrPair("data.genesyscloud_outbound_campaign."+dataSourceId, "id",
-						"genesyscloud_outbound_campaign."+resourceId, "id"),
+					resource.TestCheckResourceAttrPair("data.genesyscloud_outbound_campaign."+dataSourceLabel, "id",
+						"genesyscloud_outbound_campaign."+resourceLabel, "id"),
 				),
 			},
 		},
 	})
 }
 
-func generateOutboundCampaignDataSource(id string, name string, dependsOn string) string {
+func generateOutboundCampaignDataSource(dataSourceLabel string, name string, dependsOn string) string {
 	return fmt.Sprintf(`
 data "genesyscloud_outbound_campaign" "%s" {
 	name = "%s"
 	depends_on = [%s]
 }
-`, id, name, dependsOn)
+`, dataSourceLabel, name, dependsOn)
 }

@@ -18,13 +18,13 @@ resource_genesyscloud_integration_action_schema.go should hold four types of fun
 3.  The datasource schema definitions for the integration_action datasource.
 4.  The resource exporter configuration for the integration_action exporter.
 */
-const resourceName = "genesyscloud_integration_action"
+const ResourceType = "genesyscloud_integration_action"
 
 // SetRegistrar registers all of the resources, datasources and exporters in the package
 func SetRegistrar(l registrar.Registrar) {
-	l.RegisterDataSource(resourceName, DataSourceIntegrationAction())
-	l.RegisterResource(resourceName, ResourceIntegrationAction())
-	l.RegisterExporter(resourceName, IntegrationActionExporter())
+	l.RegisterDataSource(ResourceType, DataSourceIntegrationAction())
+	l.RegisterResource(ResourceType, ResourceIntegrationAction())
+	l.RegisterExporter(ResourceType, IntegrationActionExporter())
 }
 
 // ResourceIntegrationAction registers the genesyscloud_integration_action resource with Terraform
@@ -164,6 +164,7 @@ func IntegrationActionExporter() *resourceExporter.ResourceExporter {
 			"integration_id": {RefType: "genesyscloud_integration"},
 		},
 		JsonEncodeAttributes: []string{"contract_input", "contract_output"},
+		AllowZeroValuesInMap: []string{"config_response.translation_map_defaults"},
 	}
 }
 

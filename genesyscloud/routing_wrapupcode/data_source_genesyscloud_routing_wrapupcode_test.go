@@ -13,11 +13,12 @@ import (
 
 func TestAccDataSourceWrapupcode(t *testing.T) {
 	var (
-		codeRes     = "routing-wrapupcode"
-		codeData    = "codeData"
-		codeName    = "Terraform Code-" + uuid.NewString()
-		divResource = "test-division"
-		divName     = "terraform-" + uuid.NewString()
+		codeResourceLabel = "routing-wrapupcode"
+		codeDataLabel     = "codeData"
+		codeName          = "Terraform Code-" + uuid.NewString()
+		divResourceLabel  = "test-division"
+		divName           = "terraform-" + uuid.NewString()
+		description       = "Terraform wrapup code description"
 	)
 
 	resource.Test(t, resource.TestCase{
@@ -25,26 +26,27 @@ func TestAccDataSourceWrapupcode(t *testing.T) {
 		ProviderFactories: provider.GetProviderFactories(providerResources, providerDataSources),
 		Steps: []resource.TestStep{
 			{
-				Config: authDivision.GenerateAuthDivisionBasic(divResource, divName) + GenerateRoutingWrapupcodeResource(
-					codeRes,
+				Config: authDivision.GenerateAuthDivisionBasic(divResourceLabel, divName) + GenerateRoutingWrapupcodeResource(
+					codeResourceLabel,
 					codeName,
-					"genesyscloud_auth_division."+divResource+".id",
+					"genesyscloud_auth_division."+divResourceLabel+".id",
+					description,
 				) + generateRoutingWrapupcodeDataSource(
-					codeData,
+					codeDataLabel,
 					codeName,
-					resourceName+"."+codeRes),
+					ResourceType+"."+codeResourceLabel),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttrPair("data."+resourceName+"."+codeData, "id", resourceName+"."+codeRes, "id"),
+					resource.TestCheckResourceAttrPair("data."+ResourceType+"."+codeDataLabel, "id", ResourceType+"."+codeResourceLabel, "id"),
 				),
 			},
 		},
 	})
 }
 
-func generateRoutingWrapupcodeDataSource(resourceID string, name string, dependsOnResource string) string {
+func generateRoutingWrapupcodeDataSource(resourceLabel string, name string, dependsOnResource string) string {
 	return fmt.Sprintf(`data "%s" "%s" {
 		name = "%s"
 		depends_on=[%s]
 	}
-	`, resourceName, resourceID, name, dependsOnResource)
+	`, ResourceType, resourceLabel, name, dependsOnResource)
 }

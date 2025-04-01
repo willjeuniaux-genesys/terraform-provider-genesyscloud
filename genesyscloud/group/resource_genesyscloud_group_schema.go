@@ -10,7 +10,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
 
-const resourceName = "genesyscloud_group"
+const ResourceType = "genesyscloud_group"
 
 var (
 	groupPhoneType       = "PHONE"
@@ -39,9 +39,9 @@ var (
 
 // SetRegistrar registers all of the resources, datasources and exporters in the package
 func SetRegistrar(regInstance registrar.Registrar) {
-	regInstance.RegisterResource(resourceName, ResourceGroup())
-	regInstance.RegisterDataSource(resourceName, DataSourceGroup())
-	regInstance.RegisterExporter(resourceName, GroupExporter())
+	regInstance.RegisterResource(ResourceType, ResourceGroup())
+	regInstance.RegisterDataSource(ResourceType, DataSourceGroup())
+	regInstance.RegisterExporter(ResourceType, GroupExporter())
 }
 
 func GroupExporter() *resourceExporter.ResourceExporter {
@@ -123,6 +123,12 @@ func ResourceGroup() *schema.Resource {
 			},
 			"roles_enabled": {
 				Description: "Allow roles to be assigned to this group.",
+				Type:        schema.TypeBool,
+				Optional:    true,
+				Default:     true,
+			},
+			"calls_enabled": {
+				Description: "Allow calls to be placed to this group",
 				Type:        schema.TypeBool,
 				Optional:    true,
 				Default:     true,

@@ -2,11 +2,12 @@ package external_contacts
 
 import (
 	"fmt"
+	"strings"
 	"terraform-provider-genesyscloud/genesyscloud/util"
 	"terraform-provider-genesyscloud/genesyscloud/util/resourcedata"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/mypurecloud/platform-client-sdk-go/v143/platformclientv2"
+	"github.com/mypurecloud/platform-client-sdk-go/v154/platformclientv2"
 	"github.com/nyaruka/phonenumbers"
 )
 
@@ -29,8 +30,9 @@ func getExternalContactFromResourceData(d *schema.ResourceData) platformclientv2
 	otherEmail := d.Get("other_email").(string)
 	surveyOptOut := d.Get("survey_opt_out").(bool)
 	externalSystemUrl := d.Get("external_system_url").(string)
+	externalOrganizationId := d.Get("external_organization_id").(string)
 
-	return platformclientv2.Externalcontact{
+	externalContact := platformclientv2.Externalcontact{
 		FirstName:         &firstName,
 		MiddleName:        &middleName,
 		LastName:          &lastName,
@@ -51,6 +53,12 @@ func getExternalContactFromResourceData(d *schema.ResourceData) platformclientv2
 		SurveyOptOut:      &surveyOptOut,
 		ExternalSystemUrl: &externalSystemUrl,
 	}
+
+	if externalOrganizationId != "" {
+		externalContact.ExternalOrganization = &platformclientv2.Externalorganization{Id: &externalOrganizationId}
+	}
+
+	return externalContact
 }
 
 // buildPhonenumberFromData is a helper method to map phone data to the GenesysCloud platformclientv2.PhoneNumber
@@ -58,25 +66,27 @@ func buildPhonenumberFromData(phoneData []interface{}) *platformclientv2.Phonenu
 	phoneMap := phoneData[0].(map[string]interface{})
 
 	display := phoneMap["display"].(string)
-	extension := phoneMap["extension"].(int)
 	acceptSMS := phoneMap["accepts_sms"].(bool)
 	e164 := phoneMap["e164"].(string)
 	countryCode := phoneMap["country_code"].(string)
-
-	return &platformclientv2.Phonenumber{
+	phoneNumber := &platformclientv2.Phonenumber{
 		Display:     &display,
-		Extension:   &extension,
 		AcceptsSMS:  &acceptSMS,
 		E164:        &e164,
 		CountryCode: &countryCode,
 	}
+	extension := phoneMap["extension"].(int)
+	if extension != 0 {
+		phoneNumber.Extension = &extension
+	}
+	return phoneNumber
+
 }
 
 // buildSdkPhoneNumber is a helper method to build a Genesys Cloud SDK PhoneNumber
 func buildSdkPhoneNumber(d *schema.ResourceData, key string) *platformclientv2.Phonenumber {
 	if d.Get(key) != nil {
 		phoneData := d.Get(key).([]interface{})
-
 		if len(phoneData) > 0 {
 			return buildPhonenumberFromData(phoneData)
 		}
@@ -330,9 +340,10 @@ func hashFormattedPhoneNumber(val string) int {
 	return schema.HashString(formattedNumber)
 }
 
-func GenerateBasicExternalContactResource(resourceID string, title string) string {
+func GenerateBasicExternalContactResource(resourceLabel string, title string, extras ...string) string {
 	return fmt.Sprintf(`resource "genesyscloud_externalcontacts_contact" "%s" {
 		title = "%s"
+		%s
 	}
-	`, resourceID, title)
+	`, resourceLabel, title, strings.Join(extras, "\n"))
 }

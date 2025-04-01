@@ -2,9 +2,11 @@ package outbound_sequence
 
 import (
 	"fmt"
+	"path/filepath"
 	outboundCampaign "terraform-provider-genesyscloud/genesyscloud/outbound_campaign"
 	"terraform-provider-genesyscloud/genesyscloud/provider"
 	"terraform-provider-genesyscloud/genesyscloud/util"
+	"terraform-provider-genesyscloud/genesyscloud/util/testrunner"
 	"testing"
 
 	authDivision "terraform-provider-genesyscloud/genesyscloud/auth_division"
@@ -18,21 +20,21 @@ func TestAccDataSourceOutboundSequence(t *testing.T) {
 
 	t.Parallel()
 	var (
-		resourceId   = "sequence"
-		dataSourceId = "sequence_data"
-		sequenceName = "Test Campaign " + uuid.NewString()
+		resourceLabel   = "sequence"
+		dataSourceLabel = "sequence_data"
+		sequenceName    = "Test Campaign " + uuid.NewString()
 
 		// Campaign
-		campaignResourceId    = "campaign_resource"
-		campaignName          = "Campaign " + uuid.NewString()
-		contactListResourceId = "contact_list"
-		carResourceId         = "car"
-		siteId                = "site"
-		outboundFlowFilePath  = "../../examples/resources/genesyscloud_flow/outboundcall_flow_example.yaml"
-		flowName              = "test flow " + uuid.NewString()
-		emergencyNumber       = "+13128451429"
-		divResourceId         = "test-outbound-sequence-division"
-		divName               = "terraform-" + uuid.NewString()
+		campaignResourceLabel    = "campaign_resource"
+		campaignName             = "Campaign " + uuid.NewString()
+		contactListResourceLabel = "contact_list"
+		carResourceLabel         = "car"
+		siteId                   = "site"
+		outboundFlowFilePath     = filepath.Join(testrunner.RootDir, "examples/resources/genesyscloud_flow/outboundcall_flow_example.yaml")
+		flowName                 = "test flow " + uuid.NewString()
+		emergencyNumber          = "+13128451429"
+		divResourceLabel         = "test-outbound-sequence-division"
+		divName                  = "terraform-" + uuid.NewString()
 	)
 
 	if err := edgeSite.DeleteLocationWithNumber(emergencyNumber, sdkConfig); err != nil {
@@ -45,14 +47,14 @@ func TestAccDataSourceOutboundSequence(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config: `data "genesyscloud_auth_division_home" "home" {}` + "\n" +
-					authDivision.GenerateAuthDivisionBasic(divResourceId, divName) +
+					authDivision.GenerateAuthDivisionBasic(divResourceLabel, divName) +
 					outboundCampaign.GenerateOutboundCampaignBasic(
-						campaignResourceId,
+						campaignResourceLabel,
 						campaignName,
-						contactListResourceId,
+						contactListResourceLabel,
 						siteId,
 						emergencyNumber,
-						carResourceId,
+						carResourceLabel,
 						util.NullValue,
 						outboundFlowFilePath,
 						"data-sequence-test-flow",
@@ -60,22 +62,22 @@ func TestAccDataSourceOutboundSequence(t *testing.T) {
 						"${data.genesyscloud_auth_division_home.home.name}",
 						"data-sequence-test-location",
 						"data-sequence-test-wrapupcode",
-						divResourceId,
+						divResourceLabel,
 					) + GenerateOutboundSequence(
-					resourceId,
+					resourceLabel,
 					sequenceName,
-					[]string{"genesyscloud_outbound_campaign." + campaignResourceId + ".id"},
+					[]string{"genesyscloud_outbound_campaign." + campaignResourceLabel + ".id"},
 					util.NullValue,
 					util.NullValue,
 				) + generateOutboundSequenceDataSource(
-					dataSourceId,
+					dataSourceLabel,
 					sequenceName,
-					"genesyscloud_outbound_sequence."+resourceId,
+					"genesyscloud_outbound_sequence."+resourceLabel,
 				),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttrPair(
-						"data.genesyscloud_outbound_sequence."+dataSourceId, "id",
-						"genesyscloud_outbound_sequence."+resourceId, "id"),
+						"data.genesyscloud_outbound_sequence."+dataSourceLabel, "id",
+						"genesyscloud_outbound_sequence."+resourceLabel, "id"),
 				),
 			},
 		},
@@ -83,7 +85,7 @@ func TestAccDataSourceOutboundSequence(t *testing.T) {
 }
 
 func generateOutboundSequenceDataSource(
-	id string,
+	dataSourceLabel string,
 	name string,
 	dependsOn string) string {
 	return fmt.Sprintf(`
@@ -91,5 +93,5 @@ func generateOutboundSequenceDataSource(
 			name = "%s"
 			depends_on = [%s]
 		}
-	`, id, name, dependsOn)
+	`, dataSourceLabel, name, dependsOn)
 }

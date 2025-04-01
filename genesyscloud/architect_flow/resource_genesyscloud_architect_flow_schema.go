@@ -13,18 +13,21 @@ import (
 )
 
 const (
-	resourceName = "genesyscloud_flow"
+	ResourceType = "genesyscloud_flow"
 )
 
 // SetRegistrar registers all resources, data sources and exporters in the package
 func SetRegistrar(l registrar.Registrar) {
-	l.RegisterDataSource(resourceName, DataSourceArchitectFlow())
-	l.RegisterResource(resourceName, ResourceArchitectFlow())
-	l.RegisterExporter(resourceName, ArchitectFlowExporter())
+	l.RegisterDataSource(ResourceType, DataSourceArchitectFlow())
+	l.RegisterResource(ResourceType, ResourceArchitectFlow())
+	l.RegisterExporter(ResourceType, ArchitectFlowExporter())
 }
 
+const ExportSubDirectoryName = "architect_flows"
+
 func ArchitectFlowExporter() *resourceExporter.ResourceExporter {
-	return &resourceExporter.ResourceExporter{
+
+	legacyExporter := &resourceExporter.ResourceExporter{
 		GetResourcesFunc: provider.GetAllWithPooledClient(getAllFlows),
 		RefAttrs:         map[string]*resourceExporter.RefAttrSettings{},
 		UnResolvableAttributes: map[string]*schema.Schema{
@@ -34,6 +37,20 @@ func ArchitectFlowExporter() *resourceExporter.ResourceExporter {
 			"file_content_hash": {ResolverFunc: resourceExporter.FileContentHashResolver},
 		},
 	}
+
+	// new feature
+	newExporter := &resourceExporter.ResourceExporter{
+		GetResourcesFunc: provider.GetAllWithPooledClient(getAllFlows),
+		RefAttrs:         map[string]*resourceExporter.RefAttrSettings{},
+		CustomFileWriter: resourceExporter.CustomFileWriterSettings{
+			RetrieveAndWriteFilesFunc: architectFlowResolver,
+			SubDirectory:              ExportSubDirectoryName,
+		},
+	}
+
+	resourceExporter.SetNewFlowResourceExporter(newExporter)
+
+	return legacyExporter
 }
 
 func ResourceArchitectFlow() *schema.Resource {
@@ -123,7 +140,7 @@ func DataSourceArchitectFlow() *schema.Resource {
 				Description:  "Flow type. Valid options: " + strings.Join(validFlowTypes, ", "),
 				Type:         schema.TypeString,
 				Optional:     true,
-				ValidateFunc: validation.StringInSlice(validFlowTypes, false),
+				ValidateFunc: validation.StringInSlice(validFlowTypes, true),
 			},
 		},
 	}

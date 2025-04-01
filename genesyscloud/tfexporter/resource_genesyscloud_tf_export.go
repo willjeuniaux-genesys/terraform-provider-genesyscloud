@@ -11,10 +11,11 @@ import (
 
 	registrar "terraform-provider-genesyscloud/genesyscloud/resource_register"
 
-	"terraform-provider-genesyscloud/genesyscloud/tfexporter_state"
+	tfExporterState "terraform-provider-genesyscloud/genesyscloud/tfexporter_state"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
 
 type fileMeta struct {
@@ -22,9 +23,10 @@ type fileMeta struct {
 	IsDir bool
 }
 
-func SetRegistrar(l registrar.Registrar) {
-	l.RegisterResource("genesyscloud_tf_export", ResourceTfExport())
+const ResourceType = "genesyscloud_tf_export"
 
+func SetRegistrar(l registrar.Registrar) {
+	l.RegisterResource(ResourceType, ResourceTfExport())
 }
 
 func ResourceTfExport() *schema.Resource {
@@ -99,11 +101,25 @@ func ResourceTfExport() *schema.Resource {
 				ForceNew:    true,
 			},
 			"export_as_hcl": {
-				Description: "Export the config as HCL.",
-				Type:        schema.TypeBool,
+				Description:   "Export the config as HCL. Deprecated. Please use the export_format attribute instead",
+				Type:          schema.TypeBool,
+				Optional:      true,
+				ForceNew:      true,
+				Default:       false,
+				ConflictsWith: []string{"export_format"},
+			},
+			"export_format": {
+				Description: "Export the config as hcl or json or json_hcl.",
+				Type:        schema.TypeString,
 				Optional:    true,
-				Default:     false,
+				Default:     "json",
 				ForceNew:    true,
+				ValidateFunc: validation.StringInSlice([]string{
+					"hcl",
+					"json",
+					"json_hcl",
+					"hcl_json",
+				}, true), // true enables case-insensitive matching
 			},
 			"split_files_by_resource": {
 				Description: "Split export files by resource type. This will also split the terraform provider and variable declarations into their own files.",
@@ -120,7 +136,7 @@ func ResourceTfExport() *schema.Resource {
 				ForceNew:    true,
 			},
 			"exclude_attributes": {
-				Description: "Attributes to exclude from the config when exporting resources. Each value should be of the form {resource_name}.{attribute}, e.g. 'genesyscloud_user.skills'. Excluded attributes must be optional.",
+				Description: "Attributes to exclude from the config when exporting resources. Each value should be of the form {resource_type}.{attribute}, e.g. 'genesyscloud_user.skills'. Excluded attributes must be optional.",
 				Type:        schema.TypeList,
 				Optional:    true,
 				Elem:        &schema.Schema{Type: schema.TypeString},
@@ -148,9 +164,16 @@ func ResourceTfExport() *schema.Resource {
 				ForceNew:    true,
 			},
 			"export_computed": {
-				Description: "Export attributes that are marked as being Computed. Defaults to true to match existing functionality. This attribute's default value will likely switch to false in a future release.",
+				Description: "Export attributes that are marked as being Computed and Optional. Does not attempt to export attributes that are explicitly marked as read-only by the provider. Defaults to true to match existing functionality. This attribute's default value will likely switch to false in a future release.",
 				Default:     true,
 				Type:        schema.TypeBool,
+				Optional:    true,
+				ForceNew:    true,
+			},
+			"use_legacy_architect_flow_exporter": {
+				Description: "When set to `false`, architect flow configuration files will be downloaded as part of the flow export process.",
+				Type:        schema.TypeBool,
+				Default:     true,
 				Optional:    true,
 				ForceNew:    true,
 			},
@@ -159,41 +182,40 @@ func ResourceTfExport() *schema.Resource {
 }
 
 func createTfExport(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	tfexporter_state.ActivateExporterState()
+	tfExporterState.ActivateExporterState()
 
 	if _, ok := d.GetOk("include_filter_resources"); ok {
 		gre, _ := NewGenesysCloudResourceExporter(ctx, d, meta, IncludeResources)
 		diagErr := gre.Export()
-		if diagErr != nil {
+		if diagErr.HasError() {
 			return diagErr
 		}
 
 		d.SetId(gre.exportDirPath)
-		return nil
+		return diagErr
 	}
 
 	if _, ok := d.GetOk("exclude_filter_resources"); ok {
 		gre, _ := NewGenesysCloudResourceExporter(ctx, d, meta, ExcludeResources)
 		diagErr := gre.Export()
-		if diagErr != nil {
+		if diagErr.HasError() {
 			return diagErr
 		}
 
 		d.SetId(gre.exportDirPath)
-		return nil
+		return diagErr
 	}
 
 	//Dealing with the traditional resource
 	gre, _ := NewGenesysCloudResourceExporter(ctx, d, meta, LegacyInclude)
 	diagErr := gre.Export()
-
-	if diagErr != nil {
+	if diagErr.HasError() {
 		return diagErr
 	}
 
 	d.SetId(gre.exportDirPath)
 
-	return nil
+	return diagErr
 }
 
 // If the output directory doesn't exist or empty, mark the resource for creation.

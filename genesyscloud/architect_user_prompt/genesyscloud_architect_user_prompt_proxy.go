@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"path/filepath"
+	"strings"
 	rc "terraform-provider-genesyscloud/genesyscloud/resource_cache"
 	"terraform-provider-genesyscloud/genesyscloud/util"
 	"terraform-provider-genesyscloud/genesyscloud/util/files"
@@ -14,7 +15,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/mypurecloud/platform-client-sdk-go/v143/platformclientv2"
+	"github.com/mypurecloud/platform-client-sdk-go/v154/platformclientv2"
 )
 
 // internalProxy holds a proxy instance that can be used throughout the package
@@ -22,11 +23,14 @@ var internalProxy *architectUserPromptProxy
 
 type createArchitectUserPromptFunc func(ctx context.Context, p *architectUserPromptProxy, body platformclientv2.Prompt) (*platformclientv2.Prompt, *platformclientv2.APIResponse, error)
 type getArchitectUserPromptFunc func(ctx context.Context, p *architectUserPromptProxy, id string, includeMediaUris bool, includeResources bool, language []string, checkCache bool) (*platformclientv2.Prompt, *platformclientv2.APIResponse, error)
+type getAllArchitectUserPromptsFilterByNameFunc func(ctx context.Context, p *architectUserPromptProxy, includeMediaUris bool, includeResources bool, name string) (*[]platformclientv2.Prompt, *platformclientv2.APIResponse, error)
+type getArchitectUserPromptPageCountFunc func(ctx context.Context, p *architectUserPromptProxy, name string) (int, *platformclientv2.APIResponse, error)
 type getAllArchitectUserPromptsFunc func(ctx context.Context, p *architectUserPromptProxy, includeMediaUris bool, includeResources bool, name string) (*[]platformclientv2.Prompt, *platformclientv2.APIResponse, error)
 type updateArchitectUserPromptFunc func(ctx context.Context, p *architectUserPromptProxy, id string, body platformclientv2.Prompt) (*platformclientv2.Prompt, *platformclientv2.APIResponse, error)
 type deleteArchitectUserPromptFunc func(ctx context.Context, p *architectUserPromptProxy, id string, allResources bool) (*platformclientv2.APIResponse, error)
 type createArchitectUserPromptResourceFunc func(ctx context.Context, p *architectUserPromptProxy, id string, resource platformclientv2.Promptassetcreate) (*platformclientv2.Promptasset, *platformclientv2.APIResponse, error)
 type createOrUpdateArchitectUserPromptResourcesFunc func(context.Context, *architectUserPromptProxy, *schema.ResourceData, string, bool) (*platformclientv2.APIResponse, error)
+type deleteArchitectUserPromptResourceFunc func(ctx context.Context, p *architectUserPromptProxy, id string, languageCode string) (*platformclientv2.APIResponse, error)
 type updateArchitectUserPromptResourceFunc func(ctx context.Context, p *architectUserPromptProxy, id string, languageCode string, body platformclientv2.Promptasset) (*platformclientv2.Promptasset, *platformclientv2.APIResponse, error)
 type getArchitectUserPromptIdByNameFunc func(ctx context.Context, p *architectUserPromptProxy, name string) (string, *platformclientv2.APIResponse, error, bool)
 type uploadPromptFileFunc func(ctx context.Context, p *architectUserPromptProxy, uploadUri, filename string) error
@@ -38,12 +42,15 @@ type architectUserPromptProxy struct {
 	architectApi                                   *platformclientv2.ArchitectApi
 	createArchitectUserPromptAttr                  createArchitectUserPromptFunc
 	getArchitectUserPromptAttr                     getArchitectUserPromptFunc
+	getAllArchitectUserPromptsFilterByNameAttr     getAllArchitectUserPromptsFilterByNameFunc
+	getArchitectUserPromptPageCountAttr            getArchitectUserPromptPageCountFunc
 	getAllArchitectUserPromptsAttr                 getAllArchitectUserPromptsFunc
 	updateArchitectUserPromptAttr                  updateArchitectUserPromptFunc
 	deleteArchitectUserPromptAttr                  deleteArchitectUserPromptFunc
 	createArchitectUserPromptResourceAttr          createArchitectUserPromptResourceFunc
 	updateArchitectUserPromptResourceAttr          updateArchitectUserPromptResourceFunc
 	createOrUpdateArchitectUserPromptResourcesAttr createOrUpdateArchitectUserPromptResourcesFunc
+	deleteArchitectUserPromptResourceAttr          deleteArchitectUserPromptResourceFunc
 	getArchitectUserPromptIdByNameAttr             getArchitectUserPromptIdByNameFunc
 	uploadPromptFileAttr                           uploadPromptFileFunc
 	getArchitectUserPromptResourcesAttr            getArchitectUserPromptResourcesFunc
@@ -58,6 +65,8 @@ func newArchitectUserPromptProxy(clientConfig *platformclientv2.Configuration) *
 		architectApi:                                   api,
 		createArchitectUserPromptAttr:                  createArchitectUserPromptFn,
 		getArchitectUserPromptAttr:                     getArchitectUserPromptFn,
+		getAllArchitectUserPromptsFilterByNameAttr:     getAllArchitectUserPromptsFilterByNameFn,
+		getArchitectUserPromptPageCountAttr:            getArchitectUserPromptPageCountFn,
 		getAllArchitectUserPromptsAttr:                 getAllArchitectUserPromptsFn,
 		updateArchitectUserPromptAttr:                  updateArchitectUserPromptFn,
 		deleteArchitectUserPromptAttr:                  deleteArchitectUserPromptFn,
@@ -67,6 +76,7 @@ func newArchitectUserPromptProxy(clientConfig *platformclientv2.Configuration) *
 		getArchitectUserPromptIdByNameAttr:             getArchitectUserPromptIdByNameFn,
 		uploadPromptFileAttr:                           uploadPromptFileFn,
 		getArchitectUserPromptResourcesAttr:            getArchitectUserPromptResourcesFn,
+		deleteArchitectUserPromptResourceAttr:          deleteArchitectUserPromptResourceFn,
 		promptCache:                                    promptCache,
 	}
 }
@@ -87,6 +97,14 @@ func (p *architectUserPromptProxy) createArchitectUserPrompt(ctx context.Context
 // getArchitectUserPrompt retrieves a user prompt
 func (p *architectUserPromptProxy) getArchitectUserPrompt(ctx context.Context, id string, includeMediaUris, includeResources bool, languages []string, checkCache bool) (*platformclientv2.Prompt, *platformclientv2.APIResponse, error) {
 	return p.getArchitectUserPromptAttr(ctx, p, id, includeMediaUris, includeResources, languages, checkCache)
+}
+
+func (p *architectUserPromptProxy) getAllArchitectUserPromptsFilterByName(ctx context.Context, includeMediaUris, includeResources bool, name string) (*[]platformclientv2.Prompt, *platformclientv2.APIResponse, error) {
+	return p.getAllArchitectUserPromptsFilterByNameAttr(ctx, p, includeMediaUris, includeResources, name)
+}
+
+func (p *architectUserPromptProxy) getArchitectUserPromptPageCount(ctx context.Context, name string) (int, *platformclientv2.APIResponse, error) {
+	return p.getArchitectUserPromptPageCountAttr(ctx, p, name)
 }
 
 // getAllArchitectUserPrompts retrieves a list of user prompts
@@ -116,6 +134,11 @@ func (p *architectUserPromptProxy) createOrUpdateArchitectUserPromptResources(ct
 // updateArchitectUserPromptResource updates a user prompt resource
 func (p *architectUserPromptProxy) updateArchitectUserPromptResource(ctx context.Context, id, languageCode string, body platformclientv2.Promptasset) (*platformclientv2.Promptasset, *platformclientv2.APIResponse, error) {
 	return p.updateArchitectUserPromptResourceAttr(ctx, p, id, languageCode, body)
+}
+
+// deleteArchitectUserPromptResource deletes a user prompt resource
+func (p *architectUserPromptProxy) deleteArchitectUserPromptResource(ctx context.Context, id, languageCode string) (*platformclientv2.APIResponse, error) {
+	return p.deleteArchitectUserPromptResourceAttr(ctx, p, id, languageCode)
 }
 
 // getArchitectUserPromptIdByName retrieves a user prompt by name
@@ -153,6 +176,52 @@ func deleteArchitectUserPromptFn(_ context.Context, p *architectUserPromptProxy,
 	}
 	rc.DeleteCacheItem(p.promptCache, id)
 	return nil, nil
+}
+
+func getAllArchitectUserPromptsFilterByNameFn(_ context.Context, p *architectUserPromptProxy, includeMediaUris, includeResources bool, exportNameFilter string) (*[]platformclientv2.Prompt, *platformclientv2.APIResponse, error) {
+	const pageSize = 100
+	var allPrompts []platformclientv2.Prompt
+	var response *platformclientv2.APIResponse
+
+	for _, filter := range strings.Split(exportNameFilter, "") {
+		userPrompts, response, err := p.architectApi.GetArchitectPrompts(1, pageSize, []string{filter + "*"}, "", "", "", "", includeMediaUris, includeResources, nil)
+		if err != nil {
+			return nil, response, err
+		}
+
+		allPrompts = append(allPrompts, *userPrompts.Entities...)
+
+		pageCount := *userPrompts.PageCount
+		if userPrompts.Entities != nil || len(*userPrompts.Entities) != 0 {
+			for pageNum := 2; pageNum <= pageCount; pageNum++ {
+				userPrompts, response, getErr := p.architectApi.GetArchitectPrompts(pageNum, pageSize, []string{filter + "*"}, "", "", "", "", includeMediaUris, includeResources, nil)
+				if getErr != nil {
+					return nil, response, getErr
+				}
+
+				if userPrompts == nil || userPrompts.Entities == nil || len(*userPrompts.Entities) == 0 {
+					break
+				}
+
+				allPrompts = append(allPrompts, *userPrompts.Entities...)
+			}
+		}
+	}
+
+	for _, prompt := range allPrompts {
+		rc.SetCache(p.promptCache, *prompt.Id, prompt)
+	}
+
+	return &allPrompts, response, nil
+}
+
+func getArchitectUserPromptPageCountFn(_ context.Context, p *architectUserPromptProxy, name string) (int, *platformclientv2.APIResponse, error) {
+	const pageSize = 100
+	userPrompts, resp, err := p.architectApi.GetArchitectPrompts(1, pageSize, []string{name}, "", "", "", "", false, false, nil)
+	if err != nil {
+		return 0, resp, err
+	}
+	return *userPrompts.PageCount, nil, nil
 }
 
 func getAllArchitectUserPromptsFn(_ context.Context, p *architectUserPromptProxy, includeMediaUris, includeResources bool, name string) (*[]platformclientv2.Prompt, *platformclientv2.APIResponse, error) {
@@ -197,22 +266,33 @@ func updateArchitectUserPromptResourceFn(_ context.Context, p *architectUserProm
 	return p.architectApi.PutArchitectPromptResource(id, languageCode, body)
 }
 
-func createOrUpdateArchitectUserPromptResourcesFn(ctx context.Context, p *architectUserPromptProxy, d *schema.ResourceData, promptId string, create bool) (*platformclientv2.APIResponse, error) {
+func deleteArchitectUserPromptResourceFn(_ context.Context, p *architectUserPromptProxy, id, languageCode string) (*platformclientv2.APIResponse, error) {
+	return p.architectApi.DeleteArchitectPromptResource(id, languageCode)
+}
+
+func createOrUpdateArchitectUserPromptResourcesFn(ctx context.Context, p *architectUserPromptProxy, d *schema.ResourceData, promptId string, create bool) (_ *platformclientv2.APIResponse, err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("in createOrUpdateArchitectUserPromptResourcesFn: %w", err)
+		}
+	}()
+
 	var allLanguages []string
 
-	resourcesToCreate, resourcesToUpdate, resp, err := p.buildUserPromptResourcesForCreateAndUpdate(ctx, d, promptId, create)
+	resourcesToCreate, resourcesToUpdate, resourcesToDelete, resp, err := p.buildUserPromptResourcesForCreateAndUpdate(ctx, d, promptId, create)
 	if err != nil {
 		return resp, err
 	}
 
 	for _, r := range resourcesToCreate {
+		var resource *platformclientv2.Promptasset
 		log.Printf("Creating user prompt resource for language: %s", *r.Language)
-		resource, resp, err := p.createArchitectUserPromptResource(ctx, promptId, r)
+		resource, resp, err = p.createArchitectUserPromptResource(ctx, promptId, r)
 		if err != nil {
-			return resp, fmt.Errorf("failed to create user prompt resource for language '%s': %v", *r.Language, err)
+			return resp, fmt.Errorf("failed to create user prompt resource for language '%s': %w", *r.Language, err)
 		}
 
-		if err := p.retrieveFilenameAndUploadPromptAsset(ctx, resource); err != nil {
+		if err = p.retrieveFilenameAndUploadPromptAsset(ctx, resource); err != nil {
 			return nil, err
 		}
 
@@ -220,20 +300,45 @@ func createOrUpdateArchitectUserPromptResourcesFn(ctx context.Context, p *archit
 	}
 
 	for _, r := range resourcesToUpdate {
+		var resource *platformclientv2.Promptasset
 		log.Printf("Updating user prompt resource for language: %s", *r.Language)
-		resource, resp, err := p.updateArchitectUserPromptResource(ctx, d.Id(), *r.Language, r)
+		resource, resp, err = p.updateArchitectUserPromptResource(ctx, d.Id(), *r.Language, r)
 		if err != nil {
-			return resp, fmt.Errorf("failed to update user prompt resource for language '%s': %v", *r.Language, err)
+			return resp, fmt.Errorf("failed to update user prompt resource for language '%s': %w", *r.Language, err)
 		}
 
-		if err := p.retrieveFilenameAndUploadPromptAsset(ctx, resource); err != nil {
+		if err = p.retrieveFilenameAndUploadPromptAsset(ctx, resource); err != nil {
 			return nil, err
 		}
 
 		allLanguages = append(allLanguages, *r.Language)
 	}
 
-	return p.verifyPromptResourceFilesAreTranscoded(ctx, promptId, allLanguages)
+	for _, language := range resourcesToDelete {
+		log.Printf("Deleting user prompt resource for language: %s", language)
+		resp, err = p.deleteArchitectUserPromptResource(ctx, d.Id(), language)
+		if err != nil {
+			return resp, fmt.Errorf("failed to delete user prompt resource for language '%s': %w", language, err)
+		}
+
+		removeByValue(allLanguages, language)
+	}
+
+	if _, verifyErr := p.verifyPromptResourceFilesAreTranscoded(ctx, promptId, allLanguages); verifyErr != nil {
+		log.Printf("Failed to verify that all resource files were transcoded. Please contact care for more assistance. Prompt ID: '%s'. Error: %s", promptId, verifyErr.Error())
+	}
+	return resp, nil
+}
+
+func removeByValue(slice []string, value string) []string {
+	for i, v := range slice {
+		if v == value {
+			// Remove the element by value
+			return append(slice[:i], slice[i+1:]...)
+		}
+	}
+	// Value not found; return the original slice return slice }
+	return slice
 }
 
 func getArchitectUserPromptResourcesFn(ctx context.Context, p *architectUserPromptProxy, promptId string) (*[]platformclientv2.Promptasset, *platformclientv2.APIResponse, error) {
@@ -270,7 +375,7 @@ func (p *architectUserPromptProxy) verifyPromptResourceFilesAreTranscoded(ctx co
 		userPrompt, resp, err := p.getArchitectUserPrompt(ctx, promptId, true, true, languages, false)
 		if err != nil {
 			response = resp
-			retry.NonRetryableError(fmt.Errorf("failed to read user prompt '%s': %v", promptId, err))
+			return retry.NonRetryableError(fmt.Errorf("failed to read user prompt '%s': %v", promptId, err))
 		}
 
 		if userPrompt == nil || userPrompt.Resources == nil {
@@ -320,57 +425,115 @@ func (p *architectUserPromptProxy) retrieveFilenameAndUploadPromptAsset(ctx cont
 	return nil
 }
 
-func (p *architectUserPromptProxy) buildUserPromptResourcesForCreateAndUpdate(ctx context.Context, d *schema.ResourceData, promptId string, create bool) ([]platformclientv2.Promptassetcreate, []platformclientv2.Promptasset, *platformclientv2.APIResponse, error) {
+func (p *architectUserPromptProxy) buildUserPromptResourcesForCreateAndUpdate(ctx context.Context, d *schema.ResourceData, promptId string, create bool) ([]platformclientv2.Promptassetcreate, []platformclientv2.Promptasset, []string, *platformclientv2.APIResponse, error) {
 	var (
-		toCreate []platformclientv2.Promptassetcreate
-		toUpdate []platformclientv2.Promptasset
-
+		toCreate          []platformclientv2.Promptassetcreate
+		toUpdate          []platformclientv2.Promptasset
+		toDelete          []string
 		existingResources *[]platformclientv2.Promptasset
 	)
 
 	resources, ok := d.Get("resources").(*schema.Set)
-	if !ok || resources == nil {
-		return toCreate, toUpdate, nil, nil
+
+	if checkEmptyResource(resources) {
+		resources = nil
+	}
+
+	if (!ok || resources == nil) && create {
+		return toCreate, toUpdate, toDelete, nil, nil
 	}
 
 	if !create {
 		// Look up the existing resources for this prompt
 		userPrompt, resp, err := p.getArchitectUserPrompt(ctx, d.Id(), true, true, nil, false)
 		if err != nil {
-			return toCreate, toUpdate, resp, fmt.Errorf("failed to lookup existing resources for prompt '%s': %v", d.Id(), err)
+			return toCreate, toUpdate, toDelete, resp, fmt.Errorf("failed to lookup existing resources for prompt '%s': %v", d.Id(), err)
 		}
 		existingResources = userPrompt.Resources
 	}
 
-	for _, promptResource := range resources.List() {
-		languageExists := false
-		promptResourceMap, ok := promptResource.(map[string]interface{})
-		if !ok {
-			continue
-		}
-
-		resourceLanguage := promptResourceMap["language"].(string)
-
+	if !ok || resources == nil {
 		if existingResources != nil {
-			// Check if language resource already exists
 			for _, r := range *existingResources {
-				if *r.Language == resourceLanguage {
-					languageExists = true
-					break
-				}
+				toDelete = append(toDelete, *r.Language)
 			}
 		}
+		return toCreate, toUpdate, toDelete, nil, nil
+	} else {
+		for _, promptResource := range resources.List() {
+			languageExists := false
+			promptResourceMap, ok := promptResource.(map[string]interface{})
+			if !ok {
+				continue
+			}
 
-		if languageExists {
-			updateResourceStruct := buildUserPromptResourceForUpdate(promptResourceMap)
-			toUpdate = append(toUpdate, *updateResourceStruct)
-		} else {
-			createResourceStruct := buildUserPromptResourceForCreate(promptResourceMap)
-			toCreate = append(toCreate, *createResourceStruct)
+			resourceLanguage := promptResourceMap["language"].(string)
+
+			if resourceLanguage == "" {
+				continue
+			}
+
+			if existingResources != nil {
+				// Check if language resource already exists
+				for _, r := range *existingResources {
+					if *r.Language == resourceLanguage {
+						languageExists = true
+						break
+					}
+				}
+			}
+
+			if languageExists {
+				updateResourceStruct := buildUserPromptResourceForUpdate(promptResourceMap)
+				toUpdate = append(toUpdate, *updateResourceStruct)
+			} else {
+				createResourceStruct := buildUserPromptResourceForCreate(promptResourceMap)
+				toCreate = append(toCreate, *createResourceStruct)
+			}
 		}
 	}
 
-	return toCreate, toUpdate, nil, nil
+	if existingResources != nil {
+		for _, re := range *existingResources {
+			resourceExists := false
+			for _, promptResource := range resources.List() {
+				promptResourceMap, ok := promptResource.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				resourceLanguage := promptResourceMap["language"].(string)
+				if *re.Language == resourceLanguage {
+					resourceExists = true
+					break
+				}
+			}
+
+			if !resourceExists {
+				toDelete = append(toDelete, *re.Language)
+			}
+		}
+	}
+
+	return toCreate, toUpdate, toDelete, nil, nil
+}
+
+// the resources section of the schema is modified , to nil resources usecase.
+// this particular method will make sure identify an emptyResource section and accordingly creation and updation will happen.
+func checkEmptyResource(resources *schema.Set) bool {
+	if resources != nil && len(resources.List()) == 1 {
+		for _, promptResource := range resources.List() {
+			promptResourceMap, ok := promptResource.(map[string]interface{})
+			if !ok {
+				continue
+			}
+
+			resourceLanguage := promptResourceMap["language"].(string)
+			if resourceLanguage == "" {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // getArchitectUserPromptIdByNameFn will query user prompt by name and retry if search has not yet indexed the user prompt.

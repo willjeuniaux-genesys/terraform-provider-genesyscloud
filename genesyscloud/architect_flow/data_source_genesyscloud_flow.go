@@ -9,25 +9,25 @@ import (
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
-	"github.com/mypurecloud/platform-client-sdk-go/v143/platformclientv2"
+	"github.com/mypurecloud/platform-client-sdk-go/v154/platformclientv2"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
-func dataSourceFlowRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func dataSourceFlowRead(ctx context.Context, d *schema.ResourceData, m interface{}) (diagErr diag.Diagnostics) {
 	var (
 		sdkConfig = m.(*provider.ProviderMeta).ClientConfig
 		p         = getArchitectFlowProxy(sdkConfig)
 		response  *platformclientv2.APIResponse
 
-		name       = d.Get("name").(string)
-		varType, _ = d.Get("type").(string)
+		name    = d.Get("name").(string)
+		varType = d.Get("type").(string)
 	)
 
 	varType = strings.ToLower(varType)
 
-	diagErr := util.WithRetries(ctx, 5*time.Second, func() *retry.RetryError {
+	retryErr := util.WithRetries(ctx, 5*time.Second, func() *retry.RetryError {
 		flowId, resp, retryable, err := p.getFlowIdByNameAndType(ctx, name, varType)
 		if err != nil {
 			response = resp
@@ -40,10 +40,18 @@ func dataSourceFlowRead(ctx context.Context, d *schema.ResourceData, m interface
 		return nil
 	})
 
-	if diagErr != nil {
-		msg := fmt.Sprintf("error retrieving ID of flow '%s' | error: %v", name, diagErr)
-		return util.BuildAPIDiagnosticError(resourceName, msg, response)
+	if retryErr != nil {
+		msg := fmt.Sprintf("error retrieving ID of flow '%s' | error: %v", name, retryErr)
+		diagErr = util.BuildAPIDiagnosticError(ResourceType, msg, response)
 	}
 
-	return nil
+	if varType == "" {
+		diagErr = append(diagErr, diag.Diagnostic{
+			Severity: diag.Warning,
+			Summary:  fmt.Sprintf("'type' should be provided to the %s data source", ResourceType),
+			Detail:   fmt.Sprintf("Please provide a value for the field 'type' in the %s data source as it will become required in a later version.", ResourceType),
+		})
+	}
+
+	return diagErr
 }

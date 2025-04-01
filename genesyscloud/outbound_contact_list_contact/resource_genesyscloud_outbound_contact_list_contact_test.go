@@ -14,8 +14,8 @@ import (
 
 func TestAccResourceOutboundContactListContact(t *testing.T) {
 	var (
-		resourceId     = "contact"
-		fullResourceId = fmt.Sprintf("%s.%s", resourceName, resourceId)
+		resourceLabel     = "contact"
+		fullResourceLabel = fmt.Sprintf("%s.%s", ResourceType, resourceLabel)
 
 		cellColumnKey        = "Cell"
 		dataCellValue        = "+000000"
@@ -27,12 +27,12 @@ func TestAccResourceOutboundContactListContact(t *testing.T) {
 
 		emailColumnKey        = "Email"
 		dataEmailValue        = "email@fake.com"
-		dataEmailValueUpdated = "fake@email.cmo"
+		dataEmailValueUpdated = "fake@email.com"
 
-		contactListResourceId     = "contact_list"
-		contactListFullResourceId = "genesyscloud_outbound_contact_list." + contactListResourceId
-		contactListName           = "tf test contact list " + uuid.NewString()
-		columnNames               = []string{
+		contactListResourceLabel     = "contact_list"
+		contactListFullResourceLabel = "genesyscloud_outbound_contact_list." + contactListResourceLabel
+		contactListName              = "tf test contact list " + uuid.NewString()
+		columnNames                  = []string{
 			strconv.Quote(cellColumnKey),
 			strconv.Quote(homeColumnKey),
 			strconv.Quote(emailColumnKey),
@@ -40,12 +40,13 @@ func TestAccResourceOutboundContactListContact(t *testing.T) {
 	)
 
 	const (
-		emailMediaType = "Email"
-		voiceMediaType = "Voice"
+		emailMediaType    = "Email"
+		voiceMediaType    = "Voice"
+		whatsAppMediaType = "WhatsApp"
 	)
 
 	contactListResource := outboundContactList.GenerateOutboundContactList(
-		contactListResourceId,
+		contactListResourceLabel,
 		contactListName,
 		util.NullValue,
 		strconv.Quote(cellColumnKey),
@@ -77,8 +78,8 @@ func TestAccResourceOutboundContactListContact(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config: contactListResource + GenerateOutboundContactListContact(
-					resourceId,
-					contactListFullResourceId+".id",
+					resourceLabel,
+					contactListFullResourceLabel+".id",
 					util.NullValue,
 					util.TrueValue,
 					util.GenerateMapAttrWithMapProperties(
@@ -101,35 +102,39 @@ func TestAccResourceOutboundContactListContact(t *testing.T) {
 						util.TrueValue, // contactable
 						GenerateColumnStatus(emailColumnKey, util.TrueValue),
 					),
+					GenerateContactableStatus(
+						whatsAppMediaType,
+						util.TrueValue, // contactable
+					),
 				),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr(fullResourceId, "callable", util.TrueValue),
-					resource.TestCheckResourceAttrPair(fullResourceId, "contact_list_id", contactListFullResourceId, "id"),
-					resource.TestCheckResourceAttrSet(fullResourceId, "contact_id"),
-					resource.TestCheckResourceAttr(fullResourceId, "data."+cellColumnKey, dataCellValue),
-					resource.TestCheckResourceAttr(fullResourceId, "data."+homeColumnKey, dataHomeValue),
-					resource.TestCheckResourceAttr(fullResourceId, "data."+emailColumnKey, dataEmailValue),
-					resource.TestCheckResourceAttr(fullResourceId, "phone_number_status.#", "2"),
-					resource.TestCheckResourceAttr(fullResourceId, "phone_number_status.0.key", cellColumnKey),
-					resource.TestCheckResourceAttr(fullResourceId, "phone_number_status.0.callable", util.FalseValue),
-					resource.TestCheckResourceAttr(fullResourceId, "phone_number_status.1.key", homeColumnKey),
-					resource.TestCheckResourceAttr(fullResourceId, "phone_number_status.1.callable", util.TrueValue),
-					resource.TestCheckResourceAttr(fullResourceId, "contactable_status.#", "2"),
-					resource.TestCheckResourceAttr(fullResourceId, "contactable_status.0.media_type", voiceMediaType),
-					resource.TestCheckResourceAttr(fullResourceId, "contactable_status.0.contactable", util.FalseValue),
-					resource.TestCheckResourceAttr(fullResourceId, "contactable_status.0.column_status.0.column", cellColumnKey),
-					resource.TestCheckResourceAttr(fullResourceId, "contactable_status.0.column_status.0.contactable", util.FalseValue),
-					resource.TestCheckResourceAttr(fullResourceId, "contactable_status.1.media_type", emailMediaType),
-					resource.TestCheckResourceAttr(fullResourceId, "contactable_status.1.contactable", util.TrueValue),
-					resource.TestCheckResourceAttr(fullResourceId, "contactable_status.1.column_status.0.column", emailColumnKey),
-					resource.TestCheckResourceAttr(fullResourceId, "contactable_status.1.column_status.0.contactable", util.TrueValue),
+					resource.TestCheckResourceAttr(fullResourceLabel, "callable", util.TrueValue),
+					resource.TestCheckResourceAttrPair(fullResourceLabel, "contact_list_id", contactListFullResourceLabel, "id"),
+					resource.TestCheckResourceAttrSet(fullResourceLabel, "contact_id"),
+					resource.TestCheckResourceAttr(fullResourceLabel, "data."+cellColumnKey, dataCellValue),
+					resource.TestCheckResourceAttr(fullResourceLabel, "data."+homeColumnKey, dataHomeValue),
+					resource.TestCheckResourceAttr(fullResourceLabel, "data."+emailColumnKey, dataEmailValue),
+					resource.TestCheckResourceAttr(fullResourceLabel, "phone_number_status.#", "2"),
+					resource.TestCheckResourceAttr(fullResourceLabel, "phone_number_status.0.key", cellColumnKey),
+					resource.TestCheckResourceAttr(fullResourceLabel, "phone_number_status.0.callable", util.FalseValue),
+					resource.TestCheckResourceAttr(fullResourceLabel, "phone_number_status.1.key", homeColumnKey),
+					resource.TestCheckResourceAttr(fullResourceLabel, "phone_number_status.1.callable", util.TrueValue),
+					resource.TestCheckResourceAttr(fullResourceLabel, "contactable_status.#", "3"),
+					resource.TestCheckResourceAttr(fullResourceLabel, "contactable_status.0.media_type", voiceMediaType),
+					resource.TestCheckResourceAttr(fullResourceLabel, "contactable_status.0.contactable", util.FalseValue),
+					resource.TestCheckResourceAttr(fullResourceLabel, "contactable_status.0.column_status.0.column", cellColumnKey),
+					resource.TestCheckResourceAttr(fullResourceLabel, "contactable_status.0.column_status.0.contactable", util.FalseValue),
+					resource.TestCheckResourceAttr(fullResourceLabel, "contactable_status.1.media_type", emailMediaType),
+					resource.TestCheckResourceAttr(fullResourceLabel, "contactable_status.1.contactable", util.TrueValue),
+					resource.TestCheckResourceAttr(fullResourceLabel, "contactable_status.1.column_status.0.column", emailColumnKey),
+					resource.TestCheckResourceAttr(fullResourceLabel, "contactable_status.1.column_status.0.contactable", util.TrueValue),
 				),
 			},
 			{
 				// Update
 				Config: contactListResource + GenerateOutboundContactListContact(
-					resourceId,
-					contactListFullResourceId+".id",
+					resourceLabel,
+					contactListFullResourceLabel+".id",
 					util.NullValue,
 					util.FalseValue,
 					util.GenerateMapAttrWithMapProperties(
@@ -152,28 +157,32 @@ func TestAccResourceOutboundContactListContact(t *testing.T) {
 						util.TrueValue, // contactable
 						GenerateColumnStatus(emailColumnKey, util.TrueValue),
 					),
+					GenerateContactableStatus(
+						whatsAppMediaType,
+						util.TrueValue, // contactable
+					),
 				),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr(fullResourceId, "callable", util.FalseValue),
-					resource.TestCheckResourceAttrPair(fullResourceId, "contact_list_id", contactListFullResourceId, "id"),
-					resource.TestCheckResourceAttrSet(fullResourceId, "contact_id"),
-					resource.TestCheckResourceAttr(fullResourceId, "data."+cellColumnKey, dataCellValueUpdated),
-					resource.TestCheckResourceAttr(fullResourceId, "data."+homeColumnKey, dataHomeValueUpdated),
-					resource.TestCheckResourceAttr(fullResourceId, "data."+emailColumnKey, dataEmailValueUpdated),
-					resource.TestCheckResourceAttr(fullResourceId, "phone_number_status.#", "2"),
-					resource.TestCheckResourceAttr(fullResourceId, "phone_number_status.0.key", cellColumnKey),
-					resource.TestCheckResourceAttr(fullResourceId, "phone_number_status.0.callable", util.FalseValue),
-					resource.TestCheckResourceAttr(fullResourceId, "phone_number_status.1.key", homeColumnKey),
-					resource.TestCheckResourceAttr(fullResourceId, "phone_number_status.1.callable", util.TrueValue),
-					resource.TestCheckResourceAttr(fullResourceId, "contactable_status.#", "2"),
-					resource.TestCheckResourceAttr(fullResourceId, "contactable_status.0.media_type", voiceMediaType),
-					resource.TestCheckResourceAttr(fullResourceId, "contactable_status.0.contactable", util.FalseValue),
-					resource.TestCheckResourceAttr(fullResourceId, "contactable_status.0.column_status.0.column", cellColumnKey),
-					resource.TestCheckResourceAttr(fullResourceId, "contactable_status.0.column_status.0.contactable", util.FalseValue),
-					resource.TestCheckResourceAttr(fullResourceId, "contactable_status.1.media_type", emailMediaType),
-					resource.TestCheckResourceAttr(fullResourceId, "contactable_status.1.contactable", util.TrueValue),
-					resource.TestCheckResourceAttr(fullResourceId, "contactable_status.1.column_status.0.column", emailColumnKey),
-					resource.TestCheckResourceAttr(fullResourceId, "contactable_status.1.column_status.0.contactable", util.TrueValue),
+					resource.TestCheckResourceAttr(fullResourceLabel, "callable", util.FalseValue),
+					resource.TestCheckResourceAttrPair(fullResourceLabel, "contact_list_id", contactListFullResourceLabel, "id"),
+					resource.TestCheckResourceAttrSet(fullResourceLabel, "contact_id"),
+					resource.TestCheckResourceAttr(fullResourceLabel, "data."+cellColumnKey, dataCellValueUpdated),
+					resource.TestCheckResourceAttr(fullResourceLabel, "data."+homeColumnKey, dataHomeValueUpdated),
+					resource.TestCheckResourceAttr(fullResourceLabel, "data."+emailColumnKey, dataEmailValueUpdated),
+					resource.TestCheckResourceAttr(fullResourceLabel, "phone_number_status.#", "2"),
+					resource.TestCheckResourceAttr(fullResourceLabel, "phone_number_status.0.key", cellColumnKey),
+					resource.TestCheckResourceAttr(fullResourceLabel, "phone_number_status.0.callable", util.FalseValue),
+					resource.TestCheckResourceAttr(fullResourceLabel, "phone_number_status.1.key", homeColumnKey),
+					resource.TestCheckResourceAttr(fullResourceLabel, "phone_number_status.1.callable", util.TrueValue),
+					resource.TestCheckResourceAttr(fullResourceLabel, "contactable_status.#", "3"),
+					resource.TestCheckResourceAttr(fullResourceLabel, "contactable_status.0.media_type", voiceMediaType),
+					resource.TestCheckResourceAttr(fullResourceLabel, "contactable_status.0.contactable", util.FalseValue),
+					resource.TestCheckResourceAttr(fullResourceLabel, "contactable_status.0.column_status.0.column", cellColumnKey),
+					resource.TestCheckResourceAttr(fullResourceLabel, "contactable_status.0.column_status.0.contactable", util.FalseValue),
+					resource.TestCheckResourceAttr(fullResourceLabel, "contactable_status.1.media_type", emailMediaType),
+					resource.TestCheckResourceAttr(fullResourceLabel, "contactable_status.1.contactable", util.TrueValue),
+					resource.TestCheckResourceAttr(fullResourceLabel, "contactable_status.1.column_status.0.column", emailColumnKey),
+					resource.TestCheckResourceAttr(fullResourceLabel, "contactable_status.1.column_status.0.contactable", util.TrueValue),
 				),
 			},
 		},
@@ -182,9 +191,9 @@ func TestAccResourceOutboundContactListContact(t *testing.T) {
 
 func TestAccResourceOutboundContactListContactWithId(t *testing.T) {
 	var (
-		resourceId     = "contact"
-		fullResourceId = fmt.Sprintf("%s.%s", resourceName, resourceId)
-		contactId      = uuid.NewString()
+		resourceLabel     = "contact"
+		fullResourceLabel = fmt.Sprintf("%s.%s", ResourceType, resourceLabel)
+		contactId         = uuid.NewString()
 
 		cellColumnKey        = "Cell"
 		dataCellValue        = "+000000"
@@ -198,10 +207,10 @@ func TestAccResourceOutboundContactListContactWithId(t *testing.T) {
 		dataEmailValue        = "email@fake.com"
 		dataEmailValueUpdated = "fake@email.cmo"
 
-		contactListResourceId     = "contact_list"
-		contactListFullResourceId = "genesyscloud_outbound_contact_list." + contactListResourceId
-		contactListName           = "tf test contact list " + uuid.NewString()
-		columnNames               = []string{
+		contactListResourceLabel     = "contact_list"
+		contactListFullResourceLabel = "genesyscloud_outbound_contact_list." + contactListResourceLabel
+		contactListName              = "tf test contact list " + uuid.NewString()
+		columnNames                  = []string{
 			strconv.Quote(cellColumnKey),
 			strconv.Quote(homeColumnKey),
 			strconv.Quote(emailColumnKey),
@@ -209,12 +218,13 @@ func TestAccResourceOutboundContactListContactWithId(t *testing.T) {
 	)
 
 	const (
-		emailMediaType = "Email"
-		voiceMediaType = "Voice"
+		emailMediaType    = "Email"
+		voiceMediaType    = "Voice"
+		whatsAppMediaType = "WhatsApp"
 	)
 
 	contactListResource := outboundContactList.GenerateOutboundContactList(
-		contactListResourceId,
+		contactListResourceLabel,
 		contactListName,
 		util.NullValue,
 		strconv.Quote(cellColumnKey),
@@ -246,9 +256,9 @@ func TestAccResourceOutboundContactListContactWithId(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config: contactListResource + GenerateOutboundContactListContact(
-					resourceId,
-					contactListFullResourceId+".id",
-					contactId,
+					resourceLabel,
+					contactListFullResourceLabel+".id",
+					strconv.Quote(contactId),
 					util.TrueValue,
 					util.GenerateMapAttrWithMapProperties(
 						"data",
@@ -270,36 +280,45 @@ func TestAccResourceOutboundContactListContactWithId(t *testing.T) {
 						util.TrueValue, // contactable
 						GenerateColumnStatus(emailColumnKey, util.TrueValue),
 					),
+					GenerateContactableStatus(
+						emailMediaType,
+						util.TrueValue, // contactable
+						GenerateColumnStatus(emailColumnKey, util.TrueValue),
+					),
+					GenerateContactableStatus(
+						whatsAppMediaType,
+						util.TrueValue, // contactable
+					),
 				),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr(fullResourceId, "callable", util.TrueValue),
-					resource.TestCheckResourceAttrPair(fullResourceId, "contact_list_id", contactListFullResourceId, "id"),
-					resource.TestCheckResourceAttr(fullResourceId, "contact_id", contactId),
-					resource.TestCheckResourceAttr(fullResourceId, "data."+cellColumnKey, dataCellValue),
-					resource.TestCheckResourceAttr(fullResourceId, "data."+homeColumnKey, dataHomeValue),
-					resource.TestCheckResourceAttr(fullResourceId, "data."+emailColumnKey, dataEmailValue),
-					resource.TestCheckResourceAttr(fullResourceId, "phone_number_status.#", "2"),
-					resource.TestCheckResourceAttr(fullResourceId, "phone_number_status.0.key", cellColumnKey),
-					resource.TestCheckResourceAttr(fullResourceId, "phone_number_status.0.callable", util.FalseValue),
-					resource.TestCheckResourceAttr(fullResourceId, "phone_number_status.1.key", homeColumnKey),
-					resource.TestCheckResourceAttr(fullResourceId, "phone_number_status.1.callable", util.TrueValue),
-					resource.TestCheckResourceAttr(fullResourceId, "contactable_status.#", "2"),
-					resource.TestCheckResourceAttr(fullResourceId, "contactable_status.0.media_type", voiceMediaType),
-					resource.TestCheckResourceAttr(fullResourceId, "contactable_status.0.contactable", util.FalseValue),
-					resource.TestCheckResourceAttr(fullResourceId, "contactable_status.0.column_status.0.column", cellColumnKey),
-					resource.TestCheckResourceAttr(fullResourceId, "contactable_status.0.column_status.0.contactable", util.FalseValue),
-					resource.TestCheckResourceAttr(fullResourceId, "contactable_status.1.media_type", emailMediaType),
-					resource.TestCheckResourceAttr(fullResourceId, "contactable_status.1.contactable", util.TrueValue),
-					resource.TestCheckResourceAttr(fullResourceId, "contactable_status.1.column_status.0.column", emailColumnKey),
-					resource.TestCheckResourceAttr(fullResourceId, "contactable_status.1.column_status.0.contactable", util.TrueValue),
+					resource.TestCheckResourceAttr(fullResourceLabel, "callable", util.TrueValue),
+					resource.TestCheckResourceAttrPair(fullResourceLabel, "contact_list_id", contactListFullResourceLabel, "id"),
+					resource.TestCheckResourceAttr(fullResourceLabel, "contact_id", contactId),
+					resource.TestCheckResourceAttr(fullResourceLabel, "data."+cellColumnKey, dataCellValue),
+					resource.TestCheckResourceAttr(fullResourceLabel, "data."+homeColumnKey, dataHomeValue),
+					resource.TestCheckResourceAttr(fullResourceLabel, "data."+emailColumnKey, dataEmailValue),
+					resource.TestCheckResourceAttr(fullResourceLabel, "phone_number_status.#", "2"),
+					resource.TestCheckResourceAttr(fullResourceLabel, "phone_number_status.0.key", cellColumnKey),
+					resource.TestCheckResourceAttr(fullResourceLabel, "phone_number_status.0.callable", util.FalseValue),
+					resource.TestCheckResourceAttr(fullResourceLabel, "phone_number_status.1.key", homeColumnKey),
+					resource.TestCheckResourceAttr(fullResourceLabel, "phone_number_status.1.callable", util.TrueValue),
+					resource.TestCheckResourceAttr(fullResourceLabel, "contactable_status.#", "3"),
+					resource.TestCheckResourceAttr(fullResourceLabel, "contactable_status.0.media_type", voiceMediaType),
+					resource.TestCheckResourceAttr(fullResourceLabel, "contactable_status.0.contactable", util.FalseValue),
+					resource.TestCheckResourceAttr(fullResourceLabel, "contactable_status.0.column_status.0.column", cellColumnKey),
+					resource.TestCheckResourceAttr(fullResourceLabel, "contactable_status.0.column_status.0.contactable", util.FalseValue),
+					resource.TestCheckResourceAttr(fullResourceLabel, "contactable_status.1.media_type", emailMediaType),
+					resource.TestCheckResourceAttr(fullResourceLabel, "contactable_status.1.contactable", util.TrueValue),
+					resource.TestCheckResourceAttr(fullResourceLabel, "contactable_status.1.column_status.0.column", emailColumnKey),
+					resource.TestCheckResourceAttr(fullResourceLabel, "contactable_status.1.column_status.0.contactable", util.TrueValue),
 				),
 			},
 			{
 				// Update
 				Config: contactListResource + GenerateOutboundContactListContact(
-					resourceId,
-					contactListFullResourceId+".id",
-					contactId,
+					resourceLabel,
+					contactListFullResourceLabel+".id",
+					strconv.Quote(contactId),
 					util.FalseValue,
 					util.GenerateMapAttrWithMapProperties(
 						"data",
@@ -321,28 +340,32 @@ func TestAccResourceOutboundContactListContactWithId(t *testing.T) {
 						util.TrueValue, // contactable
 						GenerateColumnStatus(emailColumnKey, util.TrueValue),
 					),
+					GenerateContactableStatus(
+						whatsAppMediaType,
+						util.TrueValue, // contactable
+					),
 				),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr(fullResourceId, "callable", util.FalseValue),
-					resource.TestCheckResourceAttrPair(fullResourceId, "contact_list_id", contactListFullResourceId, "id"),
-					resource.TestCheckResourceAttr(fullResourceId, "contact_id", contactId),
-					resource.TestCheckResourceAttr(fullResourceId, "data."+cellColumnKey, dataCellValueUpdated),
-					resource.TestCheckResourceAttr(fullResourceId, "data."+homeColumnKey, dataHomeValueUpdated),
-					resource.TestCheckResourceAttr(fullResourceId, "data."+emailColumnKey, dataEmailValueUpdated),
-					resource.TestCheckResourceAttr(fullResourceId, "phone_number_status.#", "2"),
-					resource.TestCheckResourceAttr(fullResourceId, "phone_number_status.0.key", cellColumnKey),
-					resource.TestCheckResourceAttr(fullResourceId, "phone_number_status.0.callable", util.FalseValue),
-					resource.TestCheckResourceAttr(fullResourceId, "phone_number_status.1.key", homeColumnKey),
-					resource.TestCheckResourceAttr(fullResourceId, "phone_number_status.1.callable", util.TrueValue),
-					resource.TestCheckResourceAttr(fullResourceId, "contactable_status.#", "2"),
-					resource.TestCheckResourceAttr(fullResourceId, "contactable_status.0.media_type", voiceMediaType),
-					resource.TestCheckResourceAttr(fullResourceId, "contactable_status.0.contactable", util.FalseValue),
-					resource.TestCheckResourceAttr(fullResourceId, "contactable_status.0.column_status.0.column", cellColumnKey),
-					resource.TestCheckResourceAttr(fullResourceId, "contactable_status.0.column_status.0.contactable", util.FalseValue),
-					resource.TestCheckResourceAttr(fullResourceId, "contactable_status.1.media_type", emailMediaType),
-					resource.TestCheckResourceAttr(fullResourceId, "contactable_status.1.contactable", util.TrueValue),
-					resource.TestCheckResourceAttr(fullResourceId, "contactable_status.1.column_status.0.column", emailColumnKey),
-					resource.TestCheckResourceAttr(fullResourceId, "contactable_status.1.column_status.0.contactable", util.TrueValue),
+					resource.TestCheckResourceAttr(fullResourceLabel, "callable", util.FalseValue),
+					resource.TestCheckResourceAttrPair(fullResourceLabel, "contact_list_id", contactListFullResourceLabel, "id"),
+					resource.TestCheckResourceAttr(fullResourceLabel, "contact_id", contactId),
+					resource.TestCheckResourceAttr(fullResourceLabel, "data."+cellColumnKey, dataCellValueUpdated),
+					resource.TestCheckResourceAttr(fullResourceLabel, "data."+homeColumnKey, dataHomeValueUpdated),
+					resource.TestCheckResourceAttr(fullResourceLabel, "data."+emailColumnKey, dataEmailValueUpdated),
+					resource.TestCheckResourceAttr(fullResourceLabel, "phone_number_status.#", "2"),
+					resource.TestCheckResourceAttr(fullResourceLabel, "phone_number_status.0.key", cellColumnKey),
+					resource.TestCheckResourceAttr(fullResourceLabel, "phone_number_status.0.callable", util.FalseValue),
+					resource.TestCheckResourceAttr(fullResourceLabel, "phone_number_status.1.key", homeColumnKey),
+					resource.TestCheckResourceAttr(fullResourceLabel, "phone_number_status.1.callable", util.TrueValue),
+					resource.TestCheckResourceAttr(fullResourceLabel, "contactable_status.#", "3"),
+					resource.TestCheckResourceAttr(fullResourceLabel, "contactable_status.0.media_type", voiceMediaType),
+					resource.TestCheckResourceAttr(fullResourceLabel, "contactable_status.0.contactable", util.FalseValue),
+					resource.TestCheckResourceAttr(fullResourceLabel, "contactable_status.0.column_status.0.column", cellColumnKey),
+					resource.TestCheckResourceAttr(fullResourceLabel, "contactable_status.0.column_status.0.contactable", util.FalseValue),
+					resource.TestCheckResourceAttr(fullResourceLabel, "contactable_status.1.media_type", emailMediaType),
+					resource.TestCheckResourceAttr(fullResourceLabel, "contactable_status.1.contactable", util.TrueValue),
+					resource.TestCheckResourceAttr(fullResourceLabel, "contactable_status.1.column_status.0.column", emailColumnKey),
+					resource.TestCheckResourceAttr(fullResourceLabel, "contactable_status.1.column_status.0.contactable", util.TrueValue),
 				),
 			},
 		},
